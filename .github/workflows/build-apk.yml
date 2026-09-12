@@ -1,0 +1,96 @@
+name: Build & Release Digestly Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build Standalone Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🟢 Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 📦 Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 Install Mobile Dependencies
+        run: |
+          cd mobile
+          npm install
+
+      - name: ⚙️ Prebuild Native Android Project
+        run: |
+          cd mobile
+          EXPO_NO_TELEMETRY=1 npx expo prebuild --platform android --no-install
+
+      - name: 🐘 Build Release APK with Gradle
+        run: |
+          cd mobile/android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: 📋 Prepare APK Artifact
+        run: |
+          mkdir -p release-artifacts
+          APK_PATH=$(find mobile/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          echo "Found APK at: $APK_PATH"
+          cp "$APK_PATH" release-artifacts/Digestly-v1.0.0.apk
+
+      - name: 📤 Upload APK Artifact to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: Digestly-Android-APK
+          path: release-artifacts/Digestly-v1.0.0.apk
+
+      - name: 🚀 Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: "Digestly ${{ github.event.inputs.version || github.ref_name }} - Standalone Android APK"
+          body: |
+            ## 📱 Digestly — Pakistan's Stories, Distilled
+
+            Download and install the standalone **Digestly Android APK** directly onto your phone without needing any development tools or Expo Go.
+
+            ### ✨ What's Included:
+            - **Editorial 3-Line News Summaries:** Powered by Groq AI (`llama-3.3-70b-versatile`).
+            - **Multi-Source Perspectives:** Coverage comparison across Dawn, The Express Tribune, and Geo News.
+            - **Customizable Feed:** Category filtering (Politics, Business, Tech, Sports, World, Entertainment).
+            - **Offline Reading:** 1-tap bookmarks synced with Firestore.
+            - **Visual Experience:** List vs 2-Column Grid view, reader font scaling, and Dark Mode.
+
+            ### 📲 How to Install:
+            1. Download `Digestly-v1.0.0.apk` below on your Android device.
+            2. Tap the downloaded file in your browser or file manager.
+            3. If prompted, allow *"Install from Unknown Sources"*.
+            4. Tap **Install** and open Digestly!
+          files: release-artifacts/Digestly-v1.0.0.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
