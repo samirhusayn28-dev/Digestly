@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "331798617464",
+    "project_id": "digestly-cbe3c",
+    "storage_bucket": "digestly-cbe3c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:331798617464:android:192b524b149bc47d6ebc8d",
+        "android_client_info": {
+          "package_name": "com.digestly.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "331798617464-6pi4bt4ugdkt2q2vvcd39t493qive0gd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHiD_YHTJielK4F6Btq5NZ6Oi87EwOaQo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "331798617464-6pi4bt4ugdkt2q2vvcd39t493qive0gd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
