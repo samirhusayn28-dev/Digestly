@@ -58,13 +58,13 @@ jobs:
           mkdir -p release-artifacts
           APK_PATH=$(find mobile/android/app/build/outputs/apk -name "*.apk" | head -n 1)
           echo "Found APK at: $APK_PATH"
-          cp "$APK_PATH" release-artifacts/Digestly-v1.0.0.apk
+          cp "$APK_PATH" release-artifacts/Digestly.apk
 
       - name: 📤 Upload APK Artifact to GitHub Actions
         uses: actions/upload-artifact@v4
         with:
           name: Digestly-Android-APK
-          path: release-artifacts/Digestly-v1.0.0.apk
+          path: release-artifacts/Digestly.apk
 
       - name: 🚀 Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
@@ -73,23 +73,26 @@ jobs:
           tag_name: ${{ github.event.inputs.version || github.ref_name }}
           name: "Digestly ${{ github.event.inputs.version || github.ref_name }} - Standalone Android APK"
           body: |
-            ## 📱 Digestly — Pakistan's Stories, Distilled
+            ## 📱 Digestly — Modern News, Distilled
 
-            Download and install the standalone **Digestly Android APK** directly onto your phone without needing any development tools or Expo Go.
+            Download and install the standalone **Digestly Android APK** directly onto your phone without needing Expo Go or any developer setup.
 
-            ### ✨ What's Included:
-            - **Editorial 3-Line News Summaries:** Powered by Groq AI (`llama-3.3-70b-versatile`).
-            - **Multi-Source Perspectives:** Coverage comparison across Dawn, The Express Tribune, and Geo News.
-            - **Customizable Feed:** Category filtering (Politics, Business, Tech, Sports, World, Entertainment).
-            - **Offline Reading:** 1-tap bookmarks synced with Firestore.
-            - **Visual Experience:** List vs 2-Column Grid view, reader font scaling, and Dark Mode.
+            ### ✨ What's New in this Upgrade:
+            - **Modern Editorial UI:** 100% English interface with new geometric Digestly logo and refined Dark Mode.
+            - **Asymmetric Bento Layout:** Top stories featured in a Bento grid on Home with spring scale micro-interactions.
+            - **18-Category Taxonomy:** Curate topics across Politics, Business, Finance, Tech, AI, Science, Health, Sports, World, Culture, Food, Automotive, and more.
+            - **Bilingual News Content:** Quick toggle between English and Urdu summaries with native RTL text formatting.
+            - **Zero Clipping:** Dynamic safe area insets eliminating notch and bottom gesture bar clipping.
+            - **Guest Mode & Google Sign-In:** Instant "Continue as Guest" access plus Google account sync.
+            - **3-Line AI Summaries:** Groq AI (LLaMA 3.3) synthesis from Dawn, The Express Tribune, and Geo News.
+            - **Multi-Source Perspectives:** Compare coverage angles side-by-side across publishers.
 
             ### 📲 How to Install:
-            1. Download `Digestly-v1.0.0.apk` below on your Android device.
+            1. Download `Digestly.apk` below on your Android device.
             2. Tap the downloaded file in your browser or file manager.
-            3. If prompted, allow *"Install from Unknown Sources"*.
+            3. If prompted, toggle on *"Allow from this source"* (Install unknown apps).
             4. Tap **Install** and open Digestly!
-          files: release-artifacts/Digestly-v1.0.0.apk
+          files: release-artifacts/Digestly.apk
           draft: false
           prerelease: false
         env:
