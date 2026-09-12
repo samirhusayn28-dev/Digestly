@@ -40,18 +40,16 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Configure Expo Google Auth Request with proper redirectUri
+  // Configure Expo Google Auth Request with ID Token for Firebase
   const redirectUri = makeRedirectUri({
     scheme: 'digestly',
-    path: 'oauthredirect',
   });
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: GOOGLE_CONFIG.webClientId,
     webClientId: GOOGLE_CONFIG.webClientId,
     iosClientId: GOOGLE_CONFIG.iosClientId,
     androidClientId: GOOGLE_CONFIG.androidClientId,
-    redirectUri,
     scopes: ['profile', 'email'],
   });
 
@@ -98,29 +96,23 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setErrorMessage(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (!request) {
-      // In development or environments without proxy initialization, promptAsync can be called directly
-      try {
-        setLoading(true);
-        const result = await promptAsync();
-        if (result.type !== 'success') {
-          setLoading(false);
-        }
-      } catch (err: any) {
-        setLoading(false);
-        setErrorMessage(
-          err.message || 'Google Auth is initializing. You may also Continue as Guest below.'
-        );
-      }
-      return;
-    }
-
     try {
       setLoading(true);
-      await promptAsync();
+      const res = await promptAsync();
+      if (res?.type === 'success') {
+        const { id_token, access_token } = res.params;
+        await handleFirebaseAuthWithGoogle(id_token, access_token);
+      } else if (res?.type === 'error') {
+        setLoading(false);
+        setErrorMessage(res.error?.message || 'Google Sign-In failed.');
+      } else {
+        setLoading(false);
+      }
     } catch (err: any) {
       setLoading(false);
-      setErrorMessage(err.message || 'Could not launch Google Sign In.');
+      setErrorMessage(
+        err.message || 'Could not launch Google Sign In. You can continue as a Guest.'
+      );
     }
   };
 
