@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
-  const hasGroqKey = Boolean(process.env['NEWS-API-KEY']);
+  const hasGroqKey = Boolean(process.env.NEWS_API_KEY);
   const hasFirebaseProject = Boolean(process.env.FIREBASE_PROJECT_ID || 'digestly-cbe3c');
 
   return res.status(200).json({

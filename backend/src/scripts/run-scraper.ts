@@ -5,7 +5,7 @@ async function main() {
   console.log('==============================================');
   console.log('   DIGESTLY NEWS SCRAPER & SUMMARIZER TEST    ');
   console.log('==============================================');
-  console.log(`Checking NEWS-API-KEY: ${process.env['NEWS-API-KEY'] ? 'Configured ✅' : 'Not set (using intelligent fallback)'}`);
+  console.log(`Checking NEWS_API_KEY: ${process.env.NEWS_API_KEY ? 'Configured ✅' : 'Not set (using intelligent fallback)'}`);
 
   const start = Date.now();
   const result = await runScrapingPipeline();

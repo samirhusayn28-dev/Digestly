@@ -1,9 +1,9 @@
 import Groq from 'groq-sdk';
 import { ScrapedRawArticle, ProcessedArticle } from '../types/index.js';
 
-// Access Groq key using strictly bracket notation as required for hyphens:
+// Access Groq key via NEWS_API_KEY:
 const getGroqApiKey = (): string | undefined => {
-  return process.env['NEWS-API-KEY'];
+  return process.env.NEWS_API_KEY;
 };
 
 let groqClientInstance: Groq | null = null;

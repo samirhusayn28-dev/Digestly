@@ -12,7 +12,7 @@ This guide details how to deploy the **Vercel Serverless Backend** and build the
 │                   VERCEL BACKEND                         │
 │  • Scrapes Dawn, Express Tribune, and Geo News           │
 │  • Groq API summarizes each article into 3 lines         │
-│  • Reads strictly: process.env['NEWS-API-KEY']           │
+│  • Reads strictly: process.env.NEWS_API_KEY              │
 │  • Writes processed articles to Firestore                │
 └────────────────────────────┬─────────────────────────────┘
                              │ Writes to 'articles'
@@ -52,7 +52,7 @@ git push -u origin main
 2. Select your repository.
 3. Set **Root Directory** to `backend`.
 4. Configure **Environment Variables** in the Vercel dashboard:
-   - `NEWS-API-KEY`: Your Groq API key (Required)
+   - `NEWS_API_KEY`: Your Groq API key (Required)
    - `FIREBASE_PROJECT_ID`: `digestly-cbe3c`
    - `FIREBASE_API_KEY`: `AIzaSyBHiD_YHTJielK4F6Btq5NZ6Oi87EwOaQo`
    - `FIREBASE_CLIENT_EMAIL`: *(Optional service account email if using Admin SDK)*
