@@ -43,9 +43,10 @@ export const GOOGLE_CONFIG = {
   webClientId: '331798617464-6pi4bt4ugdkt2q2vvcd39t493qive0gd.apps.googleusercontent.com',
   // iOS Client ID
   iosClientId: '331798617464-q6l7vvrdml02as6buf5nsp2sh7i1le4d.apps.googleusercontent.com',
-  // Android OAuth Client ID - Set via env or dynamically once registered in Google Cloud Console
-  // Package: com.digestly.app | SHA-1: C5:8E:09:70:AA:A4:71:92:7E:69:89:DD:3F:0F:32:EC:49:62:A0:E2
-  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+  // Android OAuth Client ID (Registered in Google Cloud Console with package com.digestly.app)
+  androidClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
+    '331798617464-n12jcph1mqhphc2l7opivq7ktnfklqio.apps.googleusercontent.com',
 };
 
 // Sign in with Google Credential from expo-auth-session

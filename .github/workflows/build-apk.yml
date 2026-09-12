@@ -42,7 +42,13 @@ jobs:
           cd mobile
           npm install
 
+      - name: 🔐 Configure Environment
+        run: |
+          echo "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=331798617464-n12jcph1mqhphc2l7opivq7ktnfklqio.apps.googleusercontent.com" > mobile/.env
+
       - name: ⚙️ Prebuild Native Android Project
+        env:
+          EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: 331798617464-n12jcph1mqhphc2l7opivq7ktnfklqio.apps.googleusercontent.com
         run: |
           cd mobile
           EXPO_NO_TELEMETRY=1 npx expo prebuild --platform android --no-install
