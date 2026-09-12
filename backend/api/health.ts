@@ -12,7 +12,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     config: {
       groqKeyConfigured: hasGroqKey,
       firebaseProject: process.env.FIREBASE_PROJECT_ID || 'digestly-cbe3c',
-      cronSchedule: '*/30 * * * *',
+      cronSchedule: '0 1 * * * (Daily at 01:00 UTC / 06:00 PKT)',
     },
   });
 }

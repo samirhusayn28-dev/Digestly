@@ -15,7 +15,7 @@ A modern, editorial-grade news aggregation platform designed for Pakistan. Built
 ## Architecture
 
 1. **`backend/` (Vercel Serverless & Cron)**:
-   - Scrapes premier Pakistani publications (**Dawn**, **The Express Tribune**, **Geo News**) every 30 minutes.
+   - Scrapes premier Pakistani publications (**Dawn**, **The Express Tribune**, **Geo News**) daily every morning (06:00 AM PKT).
    - Invokes Groq AI (`process.env.NEWS_API_KEY`) to produce structured 3-line summaries, category detection, and multi-source event clusters.
    - Pushes processed articles to Firebase Firestore.
    - **Crucial:** Secret Groq keys never touch the client device.

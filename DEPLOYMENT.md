@@ -61,7 +61,7 @@ git push -u origin main
 5. Click **Deploy**.
 
 ### Step 3: Automated Cron & Verification
-- `vercel.json` automatically registers the cron job at schedule `*/30 * * * *` (every 30 minutes) targeting `/api/cron/scrape`.
+- `vercel.json` automatically registers the cron job at schedule `0 1 * * *` (Daily morning at 01:00 UTC / 06:00 AM PKT, optimized for Vercel Hobby plan) targeting `/api/cron/scrape`.
 - Test manual execution at anytime:
   `https://your-deployment.vercel.app/api/scrape`
 - Verify service status:
