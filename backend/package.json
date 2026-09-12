@@ -2,11 +2,11 @@
   "name": "digestly-backend",
   "version": "1.0.0",
   "description": "Digestly News Scraper & Groq AI Summarization Service for Vercel",
-  "main": "api/scrape.ts",
+  "type": "module",
   "scripts": {
     "dev": "tsx watch src/scripts/run-scraper.ts",
     "scrape": "tsx src/scripts/run-scraper.ts",
-    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "start": "tsx src/scripts/run-scraper.ts"
   },
   "dependencies": {
