@@ -3,18 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   TouchableOpacity,
   useWindowDimensions,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme';
-import { useAppStore } from '../store/useAppStore';
+import { DigestlyLogo } from '../components/common/DigestlyLogo';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 
@@ -24,263 +24,291 @@ interface Slide {
   badge: string;
   title: string;
   subtitle: string;
-  urduSummary: string;
+  highlight: string;
 }
 
 const slides: Slide[] = [
   {
     id: '1',
-    icon: 'sparkles',
-    badge: 'AI-DISTILLED',
-    title: 'The whole story in three concise lines.',
+    icon: 'flash-outline',
+    badge: '3-LINE BRIEFS',
+    title: 'The whole story in three essential lines.',
     subtitle:
       'Groq-powered AI cuts through 1,500 words of filler. Get the critical facts from Dawn, Tribune, and Geo in under 15 seconds.',
-    urduSummary: 'پورے مضمون کا نچوڑ صرف تین لائنوں میں',
+    highlight: 'High-density facts: names, numbers, key outcomes.',
   },
   {
     id: '2',
-    icon: 'git-compare',
+    icon: 'git-network-outline',
     badge: 'MULTI-SOURCE',
     title: 'See beyond a single headline.',
     subtitle:
-      'Every major event is analyzed across Pakistani publishers so you see differing editorial tones and angles side-by-side.',
-    urduSummary: 'ایک ہی خبر کے مختلف زاویے اور تجزیے',
+      'Major events are analyzed across premier Pakistani publishers so you can compare differing editorial tones and angles side-by-side.',
+    highlight: 'Balanced perspectives across competing outlets.',
   },
   {
     id: '3',
-    icon: 'compass',
-    badge: 'PERSONALIZED',
-    title: 'Your nation, your curated radar.',
+    icon: 'sparkles-outline',
+    badge: 'CURATED RADAR',
+    title: 'Your nation, your personalized focus.',
     subtitle:
-      'Select your focus—from Politics to Tech, Economy, and Sports. Enjoy clean, high-bandwidth Pakistani journalism.',
-    urduSummary: 'آپ کی پسند کے مطابق ذاتی نوعیت کی خبریں',
+      'Customize your news stream across Politics, Business, Tech, World, and Sports with clean, distraction-free reading.',
+    highlight: 'Zero clickbait, zero fluff, pure signal.',
   },
 ];
 
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { width } = useWindowDimensions();
-  const { colors, typography } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { colors, typography, isDark } = useTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const setHasCompletedOnboarding = useAppStore((state) => state.setHasCompletedOnboarding);
-
-  const handleFinishOnboarding = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setHasCompletedOnboarding(true);
-    navigation.replace('Login');
-  };
 
   const handleNext = () => {
-    Haptics.selectionAsync();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
-      setCurrentIndex(currentIndex + 1);
     } else {
-      handleFinishOnboarding();
+      navigation.replace('Login');
     }
   };
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={colors.statusBarStyle} />
+  const handleSkip = () => {
+    Haptics.selectionAsync();
+    navigation.replace('Login');
+  };
 
-      {/* Top Header / Skip */}
-      <View style={styles.topBar}>
-        <View style={styles.brandRow}>
-          <Text style={[typography.h3, { color: colors.textPrimary, fontWeight: '700' }]}>
-            Digestly
-          </Text>
-          <View style={[styles.urduSmallBadge, { backgroundColor: colors.accentSubtle }]}>
-            <Text style={[styles.urduSmallText, { color: colors.accent }]}>مختصر</Text>
-          </View>
+  const renderSlide = ({ item }: { item: Slide }) => (
+    <View style={[styles.slide, { width }]}>
+      {/* Visual Badge Card */}
+      <View
+        style={[
+          styles.badgeCard,
+          {
+            backgroundColor: colors.surfaceSubtle,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.iconCircle,
+            { backgroundColor: isDark ? colors.accentSubtle : '#FFFFFF' },
+          ]}
+        >
+          <Ionicons name={item.icon} size={28} color={isDark ? colors.accentBlue : colors.accent} />
         </View>
 
-        {currentIndex < slides.length - 1 ? (
-          <TouchableOpacity onPress={handleFinishOnboarding} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={[typography.bodyMedium, { color: colors.textSecondary }]}>Skip</Text>
+        <View style={[styles.badgeTag, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+          <Text style={[typography.badge, { color: colors.textPrimary, fontSize: 10 }]}>
+            {item.badge}
+          </Text>
+        </View>
+      </View>
+
+      <Text style={[typography.h1, styles.slideTitle, { color: colors.textPrimary }]}>
+        {item.title}
+      </Text>
+
+      <Text style={[typography.body, styles.slideSubtitle, { color: colors.textSecondary }]}>
+        {item.subtitle}
+      </Text>
+
+      {/* Editorial bullet highlight */}
+      <View
+        style={[
+          styles.highlightBox,
+          { backgroundColor: colors.surface, borderColor: colors.borderLight },
+        ]}
+      >
+        <Ionicons
+          name="checkmark-circle"
+          size={16}
+          color={colors.accentBlue}
+          style={{ marginRight: 8 }}
+        />
+        <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1, fontWeight: '500' }]}>
+          {item.highlight}
+        </Text>
+      </View>
+    </View>
+  );
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 16,
+        },
+      ]}
+    >
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      {/* Top Header Row */}
+      <View style={styles.headerRow}>
+        <View style={styles.brandGroup}>
+          <DigestlyLogo size="sm" />
+          <Text style={[typography.h3, styles.brandName, { color: colors.textPrimary }]}>
+            Digestly
+          </Text>
+        </View>
+
+        {currentIndex < slides.length - 1 && (
+          <TouchableOpacity onPress={handleSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Text style={[typography.caption, { color: colors.textSecondary, fontWeight: '600' }]}>
+              Skip
+            </Text>
           </TouchableOpacity>
-        ) : (
-          <View style={{ width: 40 }} />
         )}
       </View>
 
-      {/* Slides FlatList */}
+      {/* Slide Carousel */}
       <FlatList
         ref={flatListRef}
         data={slides}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(s) => s.id}
+        renderItem={renderSlide}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / width);
-          setCurrentIndex(index);
+          const newIdx = Math.round(e.nativeEvent.contentOffset.x / width);
+          setCurrentIndex(newIdx);
         }}
-        renderItem={({ item }) => (
-          <View style={[styles.slide, { width }]}>
-            <View
-              style={[
-                styles.iconContainer,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  borderColor: colors.border,
-                  shadowColor: colors.accent,
-                },
-              ]}
-            >
-              <Ionicons name={item.icon} size={46} color={colors.accent} />
-            </View>
-
-            <View style={[styles.badge, { backgroundColor: colors.accentSubtle }]}>
-              <Text style={[typography.badge, { color: colors.accent }]}>{item.badge}</Text>
-            </View>
-
-            <Text style={[typography.h1, styles.title, { color: colors.textPrimary }]}>
-              {item.title}
-            </Text>
-
-            <Text style={[typography.body, styles.subtitle, { color: colors.textSecondary }]}>
-              {item.subtitle}
-            </Text>
-
-            <View style={[styles.urduBox, { backgroundColor: colors.surfaceSubtle }]}>
-              <Text style={[styles.urduSubtitle, { color: colors.textSecondary }]}>
-                {item.urduSummary}
-              </Text>
-            </View>
-          </View>
-        )}
+        style={{ flex: 1 }}
       />
 
-      {/* Footer Controls: Dots + Button */}
-      <View style={styles.footer}>
-        <View style={styles.paginationDots}>
-          {slides.map((_, index) => (
+      {/* Bottom Actions & Pagination Dots */}
+      <View style={styles.bottomSection}>
+        {/* Pagination Dots */}
+        <View style={styles.dotsRow}>
+          {slides.map((_, i) => (
             <View
-              key={index}
+              key={i}
               style={[
                 styles.dot,
                 {
-                  backgroundColor: index === currentIndex ? colors.accent : colors.border,
-                  width: index === currentIndex ? 28 : 8,
+                  width: currentIndex === i ? 20 : 6,
+                  backgroundColor: currentIndex === i ? colors.accent : colors.border,
                 },
               ]}
             />
           ))}
         </View>
 
+        {/* Primary Action Button */}
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={handleNext}
-          style={[styles.primaryButton, { backgroundColor: colors.accent }]}
+          style={[styles.actionBtn, { backgroundColor: colors.accent }]}
         >
-          <Text style={[typography.button, { color: '#FFFFFF' }]}>
-            {currentIndex === slides.length - 1 ? 'Start Reading' : 'Continue'}
+          <Text style={[typography.button, { color: isDark ? '#0B0E14' : '#FFFFFF' }]}>
+            {currentIndex === slides.length - 1 ? 'Get Started' : 'Continue'}
           </Text>
           <Ionicons
             name="arrow-forward"
-            size={18}
-            color="#FFFFFF"
-            style={{ marginLeft: 8 }}
+            size={16}
+            color={isDark ? '#0B0E14' : '#FFFFFF'}
+            style={{ marginLeft: 6 }}
           />
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'space-between',
   },
-  topBar: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
-  brandRow: {
+  brandGroup: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  urduSmallBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+  brandName: {
     marginLeft: 8,
-  },
-  urduSmallText: {
-    fontSize: 12,
     fontWeight: '700',
   },
   slide: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 28,
-    borderWidth: 1.5,
+  badgeCard: {
+    width: 100,
+    height: 100,
+    borderRadius: 24,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
+    marginBottom: 28,
   },
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 14,
+  iconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
   },
-  title: {
+  badgeTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  slideTitle: {
     textAlign: 'center',
-    marginBottom: 14,
-    paddingHorizontal: 12,
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
-  subtitle: {
+  slideSubtitle: {
     textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 12,
-    marginBottom: 16,
+    lineHeight: 21,
+    marginBottom: 20,
+    paddingHorizontal: 8,
   },
-  urduBox: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  highlightBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 12,
-    marginTop: 4,
+    borderWidth: 1,
+    width: '100%',
+    maxWidth: 380,
   },
-  urduSubtitle: {
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  footer: {
+  bottomSection: {
     paddingHorizontal: 24,
-    paddingBottom: 28,
-    paddingTop: 16,
+    paddingTop: 12,
   },
-  paginationDots: {
+  dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 22,
-    gap: 8,
+    marginBottom: 20,
   },
   dot: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 3,
   },
-  primaryButton: {
+  actionBtn: {
+    height: 48,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 54,
-    borderRadius: 14,
   },
 });

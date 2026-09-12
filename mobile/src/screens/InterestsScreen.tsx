@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,33 +16,48 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
 import { syncUserProfileToFirestore } from '../services/firebase';
+import { DigestlyLogo } from '../components/common/DigestlyLogo';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Interests'>;
 
-interface CategoryItem {
+export interface CategoryItem {
   name: string;
   icon: keyof typeof Ionicons.glyphMap;
   desc: string;
 }
 
-const categories: CategoryItem[] = [
-  { name: 'Politics', icon: 'shield-checkmark', desc: 'Government, policies, elections & diplomacy' },
-  { name: 'Business', icon: 'trending-up', desc: 'Economy, PSX, rupee, inflation & markets' },
-  { name: 'Tech', icon: 'hardware-chip', desc: 'Startups, AI, telecom & digital Pakistan' },
-  { name: 'Sports', icon: 'trophy', desc: 'Cricket, PCB, PSL, squash & international' },
-  { name: 'World', icon: 'globe', desc: 'Global affairs, geopolitics & South Asia' },
-  { name: 'Entertainment', icon: 'film', desc: 'Culture, cinema, drama & arts' },
+export const ALL_CATEGORIES: CategoryItem[] = [
+  { name: 'Top Stories', icon: 'sparkles-outline', desc: 'Leading editorial headlines across Pakistan' },
+  { name: 'Politics', icon: 'shield-checkmark-outline', desc: 'Governance, parliamentary policy & diplomacy' },
+  { name: 'Business', icon: 'trending-up-outline', desc: 'Macroeconomy, trade, currency & PSX' },
+  { name: 'Finance', icon: 'cash-outline', desc: 'Banking, foreign reserves & market investments' },
+  { name: 'Tech', icon: 'hardware-chip-outline', desc: 'Startups, telecom, mobile & digital economy' },
+  { name: 'AI', icon: 'planet-outline', desc: 'Artificial intelligence & automation developments' },
+  { name: 'Science', icon: 'flask-outline', desc: 'Research, discoveries & space exploration' },
+  { name: 'Health', icon: 'fitness-outline', desc: 'Public health, medical research & wellness' },
+  { name: 'Sports', icon: 'trophy-outline', desc: 'Cricket, PCB, PSL, football & athletics' },
+  { name: 'World', icon: 'globe-outline', desc: 'Global geopolitics & South Asian affairs' },
+  { name: 'Entertainment', icon: 'film-outline', desc: 'Cinema, music, drama & performing arts' },
+  { name: 'Culture', icon: 'color-palette-outline', desc: 'Heritage, literature, architecture & history' },
+  { name: 'Lifestyle', icon: 'cafe-outline', desc: 'Urban living, design, trends & wellness' },
+  { name: 'Education', icon: 'school-outline', desc: 'Universities, academic policy & student reform' },
+  { name: 'Environment', icon: 'leaf-outline', desc: 'Climate resilience, ecology & water conservation' },
+  { name: 'Travel', icon: 'airplane-outline', desc: 'Northern territories, tourism & destinations' },
+  { name: 'Food', icon: 'restaurant-outline', desc: 'Culinary traditions, agriculture & restaurants' },
+  { name: 'Automotive', icon: 'car-sport-outline', desc: 'EVs, auto manufacturing & transport infra' },
 ];
 
 export const InterestsScreen: React.FC<Props> = ({ navigation }) => {
-  const { colors, typography } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { colors, typography, isDark } = useTheme();
   const user = useAppStore((state) => state.user);
+  const isGuest = useAppStore((state) => state.isGuest);
   const selectedInterests = useAppStore((state) => state.selectedInterests);
   const setSelectedInterests = useAppStore((state) => state.setSelectedInterests);
   const setHasSelectedInterests = useAppStore((state) => state.setHasSelectedInterests);
 
   const [selected, setSelected] = useState<string[]>(
-    user?.interests && user.interests.length > 0 ? user.interests : selectedInterests
+    selectedInterests.length > 0 ? selectedInterests : ['Top Stories', 'Politics', 'Business', 'Tech']
   );
   const [saving, setSaving] = useState(false);
 
@@ -58,194 +73,230 @@ export const InterestsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleFinish = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaving(true);
 
-    try {
-      if (user) {
-        await syncUserProfileToFirestore(user, selected, user.notificationPrefs);
+    setSelectedInterests(selected);
+    setHasSelectedInterests(true);
+
+    if (user && !isGuest) {
+      try {
+        await syncUserProfileToFirestore(user, selected);
+      } catch (e) {
+        console.warn('Could not sync interests to Firestore', e);
       }
-    } catch (e) {
-      console.warn('Could not sync interests to Firestore immediately', e);
-    } finally {
-      setSelectedInterests(selected);
-      setHasSelectedInterests(true);
-      setSaving(false);
-      navigation.replace('MainTabs');
     }
+
+    setSaving(false);
+    navigation.replace('MainTabs');
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={colors.statusBarStyle} />
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 12,
+        },
+      ]}
+    >
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
+      {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.badge, { backgroundColor: colors.accentSubtle }]}>
-          <Text style={[typography.badge, { color: colors.accent }]}>Personalization</Text>
+        <View style={styles.headerTop}>
+          <DigestlyLogo size="sm" />
+          <Text style={[typography.caption, { color: colors.textSecondary, marginLeft: 8 }]}>
+            {selected.length} Selected
+          </Text>
         </View>
+
         <Text style={[typography.h1, styles.title, { color: colors.textPrimary }]}>
-          What matters to you?
+          Curate Your Radar
         </Text>
         <Text style={[typography.body, styles.subtitle, { color: colors.textSecondary }]}>
-          Select the topics you want prioritized in your daily radar. Your feed will reorganize around these themes.
+          Choose topics to prioritize in your personal feed. You can adjust these anytime in Settings.
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
-        {categories.map((cat) => {
-          const isSelected = selected.includes(cat.name);
-
-          return (
-            <TouchableOpacity
-              key={cat.name}
-              activeOpacity={0.8}
-              onPress={() => toggleCategory(cat.name)}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: isSelected ? colors.surfaceElevated : colors.surface,
-                  borderColor: isSelected ? colors.accent : colors.border,
-                },
-              ]}
-            >
-              <View style={styles.cardLeft}>
-                <View
-                  style={[
-                    styles.iconBox,
-                    {
-                      backgroundColor: isSelected ? colors.accentSubtle : colors.surfaceSubtle,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={cat.icon}
-                    size={24}
-                    color={isSelected ? colors.accent : colors.textSecondary}
-                  />
-                </View>
-
-                <View style={styles.cardTexts}>
-                  <Text style={[typography.h3, { color: colors.textPrimary }]}>{cat.name}</Text>
-                  <Text
-                    style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 2 }]}
-                  >
-                    {cat.desc}
-                  </Text>
-                </View>
-              </View>
-
-              <View
+      {/* Categories Grid */}
+      <ScrollView
+        contentContainerStyle={styles.scrollGrid}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.grid}>
+          {ALL_CATEGORIES.map((cat) => {
+            const isSelected = selected.includes(cat.name);
+            return (
+              <TouchableOpacity
+                key={cat.name}
+                activeOpacity={0.8}
+                onPress={() => toggleCategory(cat.name)}
                 style={[
-                  styles.checkbox,
+                  styles.categoryCard,
                   {
-                    borderColor: isSelected ? colors.accent : colors.border,
-                    backgroundColor: isSelected ? colors.accent : 'transparent',
+                    backgroundColor: isSelected
+                      ? isDark
+                        ? '#1E293B'
+                        : '#EFF6FF'
+                      : colors.surface,
+                    borderColor: isSelected
+                      ? colors.accentBlue
+                      : colors.border,
                   },
                 ]}
               >
-                {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+                <View style={styles.cardTop}>
+                  <View
+                    style={[
+                      styles.iconCircle,
+                      {
+                        backgroundColor: isSelected
+                          ? isDark
+                            ? '#2563EB33'
+                            : '#DBEAFE'
+                          : colors.surfaceSubtle,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={cat.icon}
+                      size={18}
+                      color={isSelected ? colors.accentBlue : colors.textSecondary}
+                    />
+                  </View>
+
+                  <Ionicons
+                    name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={18}
+                    color={isSelected ? colors.accentBlue : colors.border}
+                  />
+                </View>
+
+                <Text
+                  style={[
+                    typography.h4,
+                    styles.catName,
+                    {
+                      color: isSelected ? colors.textPrimary : colors.textSecondary,
+                      fontWeight: isSelected ? '700' : '600',
+                    },
+                  ]}
+                >
+                  {cat.name}
+                </Text>
+
+                <Text
+                  numberOfLines={2}
+                  style={[
+                    typography.caption,
+                    styles.catDesc,
+                    { color: colors.textTertiary },
+                  ]}
+                >
+                  {cat.desc}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: colors.borderLight }]}>
+      {/* Floating Bottom Confirm Bar */}
+      <View style={[styles.bottomBar, { borderTopColor: colors.borderLight }]}>
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={handleFinish}
-          disabled={saving}
+          disabled={saving || selected.length === 0}
           style={[
-            styles.continueButton,
-            { backgroundColor: colors.accent, opacity: saving ? 0.7 : 1 },
+            styles.confirmBtn,
+            {
+              backgroundColor: colors.accent,
+              opacity: selected.length === 0 ? 0.6 : 1,
+            },
           ]}
         >
           {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={isDark ? '#0B0E14' : '#FFFFFF'} />
           ) : (
-            <Text style={[typography.button, { color: '#FFFFFF' }]}>
-              Enter Digestly ({selected.length} Selected)
+            <Text style={[typography.button, { color: isDark ? '#0B0E14' : '#FFFFFF' }]}>
+              Enter Digestly →
             </Text>
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'space-between',
   },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
-  badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginBottom: 12,
-  },
-  title: {
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
+  title: {
+    letterSpacing: -0.4,
+    marginBottom: 4,
+  },
   subtitle: {
-    lineHeight: 22,
+    lineHeight: 19,
   },
-  listContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    gap: 12,
+  scrollGrid: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
-  card: {
+  grid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
-  cardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 12,
-  },
-  iconBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  cardTexts: {
-    flex: 1,
-  },
-  checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-  },
-  continueButton: {
-    height: 52,
+  categoryCard: {
+    width: '48.5%',
     borderRadius: 14,
+    borderWidth: 1.2,
+    padding: 12,
+    marginBottom: 10,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  catName: {
+    fontSize: 13.5,
+    marginBottom: 3,
+  },
+  catDesc: {
+    fontSize: 10.5,
+    lineHeight: 14,
+  },
+  bottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  confirmBtn: {
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Article } from '../../navigation/types';
 import { useTheme } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { translateArticleContent } from '../../services/translation';
 
 interface ArticleCardProps {
   article: Article;
@@ -20,11 +21,36 @@ interface ArticleCardProps {
 export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) => {
   const { width } = useWindowDimensions();
   const { colors, typography, categoryColors, isDark } = useTheme();
+  const newsLanguage = useAppStore((state) => state.newsLanguage);
   const bookmarkedIds = useAppStore((state) => state.bookmarkedIds);
   const toggleBookmark = useAppStore((state) => state.toggleBookmark);
 
+  const [translatedTitle, setTranslatedTitle] = useState(article.title);
+  const [translatedSummary, setTranslatedSummary] = useState(article.summary);
+  const [imageError, setImageError] = useState(false);
+
   const isSaved = bookmarkedIds.includes(article.id);
   const isTablet = width >= 768;
+  const isUrdu = newsLanguage === 'ur';
+
+  // Translation hook
+  useEffect(() => {
+    let isMounted = true;
+    if (newsLanguage === 'ur') {
+      translateArticleContent(article, 'ur').then((data) => {
+        if (isMounted) {
+          setTranslatedTitle(data.title);
+          setTranslatedSummary(data.summary);
+        }
+      });
+    } else {
+      setTranslatedTitle(article.title);
+      setTranslatedSummary(article.summary);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [article, newsLanguage]);
 
   // Micro-interaction: spring scale on press
   const cardScale = useSharedValue(1);
@@ -47,7 +73,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
     toggleBookmark(article.id);
   };
 
-  const catStyle = categoryColors[article.category] || {
+  const catStyle = categoryColors[article.category] || categoryColors['Top Stories'] || {
     bg: colors.surfaceSubtle,
     text: colors.accent,
     darkBg: '#1E293B',
@@ -79,8 +105,8 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
             {/* Breaking news pill */}
             {article.isBreaking && (
               <View style={[styles.breakingBadge, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="flame" size={12} color="#DC2626" style={{ marginRight: 3 }} />
-                <Text style={[typography.badge, { color: '#DC2626', fontSize: 10 }]}>BREAKING</Text>
+                <Ionicons name="flash" size={10} color="#DC2626" style={{ marginRight: 3 }} />
+                <Text style={[typography.badge, { color: '#DC2626', fontSize: 9.5 }]}>BREAKING</Text>
               </View>
             )}
 
@@ -94,7 +120,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
               <Text
                 style={[
                   typography.badge,
-                  { color: isDark ? catStyle.darkText : catStyle.text, fontSize: 10.5 },
+                  { color: isDark ? catStyle.darkText : catStyle.text, fontSize: 10 },
                 ]}
               >
                 {article.category}
@@ -128,7 +154,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
           >
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={21}
+              size={20}
               color={isSaved ? colors.accent : colors.textTertiary}
             />
           </TouchableOpacity>
@@ -136,17 +162,41 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
 
         {/* Main Content: Headline + Thumbnail */}
         <View style={styles.contentRow}>
-          <Text style={[typography.h2, styles.headline, { color: colors.textPrimary }]}>
-            {article.title}
+          <Text
+            style={[
+              typography.h2,
+              styles.headline,
+              {
+                color: colors.textPrimary,
+                textAlign: isUrdu ? 'right' : 'left',
+                writingDirection: isUrdu ? 'rtl' : 'ltr',
+              },
+            ]}
+          >
+            {translatedTitle}
           </Text>
 
-          {article.imageUrl && (
+          {/* Thumbnail / Image Fallback */}
+          {!imageError && article.imageUrl ? (
             <Image
               source={{ uri: article.imageUrl }}
               style={styles.thumbnail}
               contentFit="cover"
-              transition={300}
+              transition={200}
+              onError={() => setImageError(true)}
             />
+          ) : (
+            <View
+              style={[
+                styles.thumbnailFallback,
+                { backgroundColor: isDark ? '#1E2536' : '#F1F5F9', borderColor: colors.borderLight },
+              ]}
+            >
+              <Ionicons name="newspaper-outline" size={24} color={colors.textTertiary} />
+              <Text style={[styles.fallbackSource, { color: colors.textTertiary }]} numberOfLines={1}>
+                {article.sourceName}
+              </Text>
+            </View>
           )}
         </View>
 
@@ -158,16 +208,39 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
           ]}
         >
           <View style={styles.summaryBadgeRow}>
-            <Ionicons name="sparkles" size={13} color={colors.accent} />
+            <Ionicons name="sparkles" size={12} color={colors.accent} />
             <Text style={[typography.badge, { color: colors.accent, marginLeft: 5, fontSize: 10 }]}>
-              Groq AI 3-Line Summary
+              3-Line Digest
             </Text>
           </View>
 
-          {article.summary.slice(0, 3).map((bullet, idx) => (
-            <View key={idx} style={styles.bulletRow}>
-              <Text style={[styles.bulletDot, { color: colors.accent }]}>•</Text>
-              <Text style={[typography.summaryLine, { color: colors.textSecondary, flex: 1 }]}>
+          {(translatedSummary || []).slice(0, 3).map((bullet, idx) => (
+            <View
+              key={idx}
+              style={[
+                styles.bulletRow,
+                isUrdu && { flexDirection: 'row-reverse' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.bulletDot,
+                  { color: colors.accent, marginRight: isUrdu ? 0 : 6, marginLeft: isUrdu ? 6 : 0 },
+                ]}
+              >
+                •
+              </Text>
+              <Text
+                style={[
+                  typography.summaryLine,
+                  {
+                    color: colors.textSecondary,
+                    flex: 1,
+                    textAlign: isUrdu ? 'right' : 'left',
+                    writingDirection: isUrdu ? 'rtl' : 'ltr',
+                  },
+                ]}
+              >
                 {bullet}
               </Text>
             </View>
@@ -178,7 +251,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
         <View style={styles.footerRow}>
           {article.relatedSources && article.relatedSources.length > 0 ? (
             <View style={[styles.perspectivesPill, { backgroundColor: colors.accentSubtle }]}>
-              <Ionicons name="git-network-outline" size={13} color={colors.accent} />
+              <Ionicons name="git-network-outline" size={12} color={colors.accent} />
               <Text style={[typography.caption, { color: colors.accent, marginLeft: 5, fontWeight: '600' }]}>
                 {article.relatedSources.length + 1} sources covering this
               </Text>
@@ -201,20 +274,20 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    marginBottom: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    marginBottom: 14,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
     elevation: 2,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   metaLeft: {
     flexDirection: 'row',
@@ -226,19 +299,19 @@ const styles = StyleSheet.create({
   breakingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 5,
     marginRight: 6,
   },
   categoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 5,
   },
   bookmarkTouch: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -250,34 +323,50 @@ const styles = StyleSheet.create({
   },
   headline: {
     flex: 1,
-    lineHeight: 26,
+    lineHeight: 23,
+    fontSize: 16,
+    fontWeight: '700',
   },
   thumbnail: {
     width: 76,
     height: 76,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: '#E2E8F0',
   },
-  summaryContainer: {
-    borderRadius: 14,
-    padding: 12,
+  thumbnailFallback: {
+    width: 76,
+    height: 76,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    gap: 6,
-    marginBottom: 12,
+    padding: 4,
+  },
+  fallbackSource: {
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  summaryContainer: {
+    borderRadius: 12,
+    padding: 11,
+    borderWidth: 1,
+    gap: 5,
+    marginBottom: 10,
   },
   summaryBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   bulletRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   bulletDot: {
-    fontSize: 16,
-    lineHeight: 19,
-    marginRight: 6,
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: '700',
   },
   footerRow: {
@@ -290,8 +379,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
   },
   readMoreRow: {
     flexDirection: 'row',

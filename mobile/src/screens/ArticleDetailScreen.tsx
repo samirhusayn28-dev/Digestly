@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   StatusBar,
@@ -11,7 +10,9 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
@@ -20,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
+import { translateArticleContent } from '../services/translation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ArticleDetail'>;
 
@@ -27,22 +29,61 @@ type FontSizeOption = 'sm' | 'md' | 'lg';
 
 export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { article } = route.params;
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { colors, typography, categoryColors, isDark } = useTheme();
+
+  const newsLanguage = useAppStore((state) => state.newsLanguage);
+  const setNewsLanguage = useAppStore((state) => state.setNewsLanguage);
   const bookmarkedIds = useAppStore((state) => state.bookmarkedIds);
   const toggleBookmark = useAppStore((state) => state.toggleBookmark);
 
   const [fontSize, setFontSize] = useState<FontSizeOption>('md');
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedTitle, setTranslatedTitle] = useState(article.title);
+  const [translatedSummary, setTranslatedSummary] = useState(article.summary);
+  const [imageError, setImageError] = useState(false);
 
   const isSaved = bookmarkedIds.includes(article.id);
   const isTablet = width >= 768;
+  const isUrdu = newsLanguage === 'ur';
+
+  // Translation synchronization
+  useEffect(() => {
+    let isMounted = true;
+    if (newsLanguage === 'ur') {
+      setIsTranslating(true);
+      translateArticleContent(article, 'ur')
+        .then((data) => {
+          if (isMounted) {
+            setTranslatedTitle(data.title);
+            setTranslatedSummary(data.summary);
+          }
+        })
+        .finally(() => {
+          if (isMounted) setIsTranslating(false);
+        });
+    } else {
+      setTranslatedTitle(article.title);
+      setTranslatedSummary(article.summary);
+      setIsTranslating(false);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [article, newsLanguage]);
+
+  const handleToggleLanguage = () => {
+    Haptics.selectionAsync();
+    setNewsLanguage(newsLanguage === 'en' ? 'ur' : 'en');
+  };
 
   const handleOpenSource = async (url: string) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await WebBrowser.openBrowserAsync(url, {
-        toolbarColor: isDark ? '#131B29' : '#FFFFFF',
+        toolbarColor: isDark ? '#121620' : '#FFFFFF',
         controlsColor: colors.accent,
       });
     } catch (e) {
@@ -60,7 +101,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       await Share.share({
         title: article.title,
-        message: `${article.title}\n\nRead the AI-distilled summary on Digestly:\n${article.sourceUrl}`,
+        message: `${article.title}\n\nRead the summary on Digestly:\n${article.sourceUrl}`,
         url: article.sourceUrl,
       });
     } catch (e) {
@@ -85,36 +126,37 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const getBodyFontSize = () => {
     switch (fontSize) {
       case 'sm':
-        return 14;
+        return 13.5;
       case 'lg':
-        return 17.5;
+        return 16.5;
       case 'md':
       default:
-        return 15.5;
+        return 14.5;
     }
   };
 
   const getBodyLineHeight = () => {
     switch (fontSize) {
       case 'sm':
-        return 22;
+        return 21;
       case 'lg':
-        return 27;
+        return 26;
       case 'md':
       default:
-        return 24;
+        return 23;
     }
   };
 
-  const catStyle = categoryColors[article.category] || {
+  const catStyle = categoryColors[article.category] || categoryColors['Top Stories'] || {
     bg: colors.surfaceSubtle,
     text: colors.accent,
     darkBg: '#1E293B',
     darkText: colors.accent,
+    accentColor: colors.accent,
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar barStyle={colors.statusBarStyle} />
 
       {/* Reading Progress Indicator Bar */}
@@ -132,16 +174,44 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle }]}
+          style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
         >
-          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={19} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.navRight}>
+          {/* Language Urdu/English switch button */}
+          <TouchableOpacity
+            onPress={handleToggleLanguage}
+            style={[
+              styles.langToggleBtn,
+              {
+                backgroundColor: isUrdu ? colors.accent : colors.surfaceSubtle,
+                borderColor: isUrdu ? colors.accent : colors.borderLight,
+              },
+            ]}
+          >
+            {isTranslating ? (
+              <ActivityIndicator size="small" color={isUrdu ? (isDark ? '#000000' : '#FFFFFF') : colors.accent} />
+            ) : (
+              <Text
+                style={[
+                  typography.badge,
+                  {
+                    color: isUrdu ? (isDark ? '#000000' : '#FFFFFF') : colors.textPrimary,
+                    fontSize: 10.5,
+                  },
+                ]}
+              >
+                {isUrdu ? 'اردو' : 'EN'}
+              </Text>
+            )}
+          </TouchableOpacity>
+
           {/* Font Size Toggle Button */}
           <TouchableOpacity
             onPress={cycleFontSize}
-            style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, marginRight: 8 }]}
+            style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
           >
             <Text style={[styles.fontToggleText, { color: colors.textPrimary }]}>
               {fontSize === 'sm' ? 'A' : fontSize === 'md' ? 'A+' : 'A++'}
@@ -150,18 +220,18 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           <TouchableOpacity
             onPress={handleShare}
-            style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, marginRight: 8 }]}
+            style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
           >
-            <Ionicons name="share-outline" size={19} color={colors.textPrimary} />
+            <Ionicons name="share-outline" size={18} color={colors.textPrimary} />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleToggleBookmark}
-            style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle }]}
+            style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
           >
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={20}
+              size={18}
               color={isSaved ? colors.accent : colors.textPrimary}
             />
           </TouchableOpacity>
@@ -171,30 +241,36 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { maxWidth: isTablet ? 740 : '100%', alignSelf: 'center', width: '100%' },
+          {
+            maxWidth: isTablet ? 740 : '100%',
+            alignSelf: 'center',
+            width: '100%',
+            paddingBottom: insets.bottom + 40,
+          },
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
         {/* Hero Image if available */}
-        {article.imageUrl && (
+        {!imageError && article.imageUrl ? (
           <View style={styles.heroContainer}>
             <Image
               source={{ uri: article.imageUrl }}
               style={styles.heroImage}
               contentFit="cover"
-              transition={400}
+              transition={300}
+              onError={() => setImageError(true)}
             />
           </View>
-        )}
+        ) : null}
 
         {/* Category & Source Metadata */}
         <View style={styles.metaRow}>
           {article.isBreaking && (
             <View style={[styles.breakingBadge, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="flame" size={12} color="#DC2626" style={{ marginRight: 3 }} />
-              <Text style={[typography.badge, { color: '#DC2626', fontSize: 10 }]}>BREAKING</Text>
+              <Ionicons name="flash" size={10} color="#DC2626" style={{ marginRight: 3 }} />
+              <Text style={[typography.badge, { color: '#DC2626', fontSize: 9.5 }]}>BREAKING</Text>
             </View>
           )}
 
@@ -207,7 +283,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text
               style={[
                 typography.badge,
-                { color: isDark ? catStyle.darkText : catStyle.text, fontSize: 10.5 },
+                { color: isDark ? catStyle.darkText : catStyle.text, fontSize: 10 },
               ]}
             >
               {article.category}
@@ -232,34 +308,59 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Headline */}
-        <Text style={[typography.h1, styles.title, { color: colors.textPrimary }]}>
-          {article.title}
+        <Text
+          style={[
+            typography.h1,
+            styles.title,
+            {
+              color: colors.textPrimary,
+              textAlign: isUrdu ? 'right' : 'left',
+              writingDirection: isUrdu ? 'rtl' : 'ltr',
+            },
+          ]}
+        >
+          {translatedTitle}
         </Text>
 
-        {/* Groq AI 3-Line Summary Card */}
+        {/* 3-Line Summary Card */}
         <View
           style={[
             styles.aiSummaryBox,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
           ]}
         >
           <View style={styles.aiBadgeRow}>
-            <View style={[styles.sparkleBox, { backgroundColor: colors.accentSubtle }]}>
-              <Ionicons name="sparkles" size={16} color={colors.accent} />
+            <View style={[styles.sparkleBox, { backgroundColor: colors.surface }]}>
+              <Ionicons name="sparkles" size={14} color={colors.accent} />
             </View>
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={[typography.badge, { color: colors.accent }]}>
-                Groq AI 3-Line Distillation
+            <View style={{ flex: 1, marginLeft: 9 }}>
+              <Text style={[typography.badge, { color: colors.accent, fontSize: 10.5 }]}>
+                3-Line Digest
               </Text>
               <Text style={[typography.caption, { color: colors.textTertiary, marginTop: 1 }]}>
-                Synthesized facts from Pakistani newsroom coverage
+                Distilled from Pakistani newsroom coverage
               </Text>
             </View>
           </View>
 
-          {article.summary.map((point, index) => (
-            <View key={index} style={styles.bulletRow}>
-              <View style={[styles.bulletNumberCircle, { backgroundColor: colors.accentSubtle }]}>
+          {(translatedSummary || []).map((point, index) => (
+            <View
+              key={index}
+              style={[
+                styles.bulletRow,
+                isUrdu && { flexDirection: 'row-reverse' },
+              ]}
+            >
+              <View
+                style={[
+                  styles.bulletNumberCircle,
+                  {
+                    backgroundColor: colors.surface,
+                    marginRight: isUrdu ? 0 : 9,
+                    marginLeft: isUrdu ? 9 : 0,
+                  },
+                ]}
+              >
                 <Text style={[styles.bulletNumber, { color: colors.accent }]}>
                   {index + 1}
                 </Text>
@@ -272,6 +373,8 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     color: colors.textPrimary,
                     fontSize: getBodyFontSize(),
                     lineHeight: getBodyLineHeight(),
+                    textAlign: isUrdu ? 'right' : 'left',
+                    writingDirection: isUrdu ? 'rtl' : 'ltr',
                   },
                 ]}
               >
@@ -287,26 +390,36 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           onPress={() => handleOpenSource(article.sourceUrl)}
           style={[styles.readOriginalButton, { backgroundColor: colors.accent }]}
         >
-          <Ionicons name="newspaper-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={[typography.button, { color: '#FFFFFF' }]}>
+          <Ionicons
+            name="newspaper-outline"
+            size={16}
+            color={isDark ? '#000000' : '#FFFFFF'}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={[typography.button, { color: isDark ? '#000000' : '#FFFFFF' }]}>
             Read full article on {article.sourceName}
           </Text>
-          <Ionicons name="open-outline" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+          <Ionicons
+            name="open-outline"
+            size={15}
+            color={isDark ? '#000000' : '#FFFFFF'}
+            style={{ marginLeft: 6 }}
+          />
         </TouchableOpacity>
 
-        {/* Multi-Source Comparison Feature (Differentiator) */}
+        {/* Multi-Source Comparison Feature */}
         {article.relatedSources && article.relatedSources.length > 0 && (
           <View style={styles.comparisonSection}>
             <View style={styles.comparisonHeader}>
-              <View style={[styles.compareIconBox, { backgroundColor: colors.accentSubtle }]}>
-                <Ionicons name="git-network" size={18} color={colors.accent} />
+              <View style={[styles.compareIconBox, { backgroundColor: colors.surfaceSubtle }]}>
+                <Ionicons name="git-network-outline" size={16} color={colors.accent} />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={[typography.h3, { color: colors.textPrimary }]}>
-                  Other Sources Are Also Covering This
+                  Perspectives & Related Coverage
                 </Text>
                 <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
-                  Cross-examine editorial framing across major Pakistani newsrooms:
+                  Examine framing across major Pakistani newsrooms:
                 </Text>
               </View>
             </View>
@@ -323,11 +436,11 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               >
                 <View style={styles.relatedTop}>
                   <View style={[styles.relatedSourceTag, { backgroundColor: colors.surfaceSubtle }]}>
-                    <Text style={[typography.badge, { color: colors.accent }]}>
+                    <Text style={[typography.badge, { color: colors.accent, fontSize: 10 }]}>
                       {rel.sourceName}
                     </Text>
                   </View>
-                  <Ionicons name="open-outline" size={15} color={colors.textTertiary} />
+                  <Ionicons name="open-outline" size={14} color={colors.textTertiary} />
                 </View>
 
                 <Text style={[typography.h4, styles.relatedHeadline, { color: colors.textPrimary }]}>
@@ -347,7 +460,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -356,7 +469,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   progressBarTrack: {
-    height: 3,
+    height: 2.5,
     width: '100%',
   },
   progressBarFill: {
@@ -366,36 +479,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     borderBottomWidth: 1,
   },
   navBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+  },
+  langToggleBtn: {
+    paddingHorizontal: 8,
+    height: 36,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    minWidth: 38,
   },
   fontToggleText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   navRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 48,
+    paddingHorizontal: 18,
+    paddingTop: 14,
   },
   heroContainer: {
     width: '100%',
-    height: 220,
-    borderRadius: 18,
+    height: 200,
+    borderRadius: 14,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 14,
     backgroundColor: '#E2E8F0',
   },
   heroImage: {
@@ -405,65 +528,60 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
     flexWrap: 'wrap',
   },
   breakingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 5,
     marginRight: 6,
   },
   categoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 5,
   },
   title: {
-    marginBottom: 18,
-    lineHeight: 34,
+    marginBottom: 16,
+    lineHeight: 28,
+    fontSize: 20,
   },
   aiSummaryBox: {
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    marginBottom: 18,
   },
   aiBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sparkleBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bulletRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   bulletNumberCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
     marginTop: 2,
   },
   bulletNumber: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   bulletText: {
@@ -473,48 +591,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 54,
-    borderRadius: 14,
-    marginBottom: 28,
+    height: 48,
+    borderRadius: 12,
+    marginBottom: 24,
   },
   comparisonSection: {
-    marginTop: 4,
+    marginTop: 2,
   },
   comparisonHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   compareIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   relatedCard: {
-    padding: 16,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   relatedTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   relatedSourceTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 5,
   },
   relatedHeadline: {
-    lineHeight: 22,
-    marginBottom: 8,
+    lineHeight: 20,
+    fontSize: 14,
+    marginBottom: 6,
   },
   angleBox: {
-    padding: 10,
-    borderRadius: 10,
+    padding: 8,
+    borderRadius: 8,
   },
 });

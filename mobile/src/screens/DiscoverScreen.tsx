@@ -3,13 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   ScrollView,
   TouchableOpacity,
   FlatList,
   StatusBar,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,9 +27,31 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const CATEGORIES = ['All', 'Politics', 'Business', 'Tech', 'Sports', 'World', 'Entertainment'];
+const DISCOVER_CATEGORIES = [
+  'All',
+  'Top Stories',
+  'Politics',
+  'Business',
+  'Finance',
+  'Tech',
+  'AI',
+  'Science',
+  'Health',
+  'Sports',
+  'World',
+  'Entertainment',
+  'Culture',
+  'Lifestyle',
+  'Education',
+  'Environment',
+  'Travel',
+  'Food',
+  'Automotive',
+];
 
 export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { colors, typography, categoryColors, isDark } = useTheme();
   const initialCat = route.params?.initialCategory || 'All';
 
@@ -38,13 +61,15 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const isTablet = width >= 768;
+
   useEffect(() => {
     async function loadCategoryArticles() {
       setLoading(true);
       try {
         const res = await fetchArticlesFromFirestore({
           category: selectedCategory === 'All' ? 'All' : selectedCategory,
-          pageSize: 15,
+          pageSize: 20,
         });
         setArticles(res.articles);
       } catch (err) {
@@ -79,14 +104,16 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
   });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar barStyle={colors.statusBarStyle} />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[typography.h1, { color: colors.textPrimary }]}>Discover</Text>
+        <Text style={[typography.h1, { color: colors.textPrimary, letterSpacing: -0.4 }]}>
+          Discover
+        </Text>
         <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 2 }]}>
-          Filter by topic or search across Pakistani coverage
+          18 topics & intelligent search across Pakistani news
         </Text>
       </View>
 
@@ -98,7 +125,7 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
             { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
-          <Ionicons name="search" size={18} color={colors.textTertiary} style={{ marginRight: 10 }} />
+          <Ionicons name="search" size={17} color={colors.textTertiary} style={{ marginRight: 8 }} />
           <TextInput
             placeholder="Search headlines, sources, topics..."
             placeholderTextColor={colors.textTertiary}
@@ -122,9 +149,9 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
           ]}
         >
           <Ionicons
-            name={isGridView ? 'list' : 'grid'}
-            size={20}
-            color={colors.accent}
+            name={isGridView ? 'list-outline' : 'grid-outline'}
+            size={19}
+            color={colors.textPrimary}
           />
         </TouchableOpacity>
       </View>
@@ -136,7 +163,7 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryChipsContainer}
         >
-          {CATEGORIES.map((cat) => {
+          {DISCOVER_CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
               <TouchableOpacity
@@ -154,7 +181,7 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
                   style={[
                     typography.badge,
                     {
-                      color: isSelected ? '#FFFFFF' : colors.textSecondary,
+                      color: isSelected ? (isDark ? '#000000' : '#FFFFFF') : colors.textSecondary,
                       fontSize: 11,
                     },
                   ]}
@@ -176,13 +203,13 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
       ) : filteredArticles.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={[styles.emptyCircle, { backgroundColor: colors.surfaceSubtle }]}>
-            <Ionicons name="search-outline" size={38} color={colors.textTertiary} />
+            <Ionicons name="search-outline" size={36} color={colors.textTertiary} />
           </View>
           <Text style={[typography.h3, styles.emptyTitle, { color: colors.textPrimary }]}>
             No results for "{searchQuery}"
           </Text>
           <Text style={[typography.bodySmall, styles.emptyDesc, { color: colors.textSecondary }]}>
-            Try searching for terms like "SBP", "Cricket", "Tech", or clear your search query.
+            Try searching for "Economy", "Cricket", "Tech", or clear your search.
           </Text>
           <TouchableOpacity
             onPress={() => setSearchQuery('')}
@@ -197,11 +224,19 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
           data={filteredArticles}
           keyExtractor={(item) => item.id}
           numColumns={isGridView ? 2 : 1}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              maxWidth: isTablet ? 740 : '100%',
+              alignSelf: 'center',
+              width: '100%',
+              paddingBottom: insets.bottom + 80,
+            },
+          ]}
           columnWrapperStyle={isGridView ? styles.gridColumnWrapper : undefined}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
-            const catStyle = categoryColors[item.category] || {
+            const catStyle = categoryColors[item.category] || categoryColors['Top Stories'] || {
               bg: colors.surfaceSubtle,
               text: colors.accent,
               darkBg: '#1E293B',
@@ -227,17 +262,25 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
                       source={{ uri: item.imageUrl }}
                       style={styles.gridImage}
                       contentFit="cover"
-                      transition={300}
+                      transition={250}
                     />
                   ) : (
-                    <View style={[styles.gridImageFallback, { backgroundColor: colors.accentSubtle }]}>
-                      <Ionicons name="newspaper-outline" size={24} color={colors.accent} />
+                    <View style={[styles.gridImageFallback, { backgroundColor: isDark ? '#1E2536' : '#F1F5F9' }]}>
+                      <Ionicons name="newspaper-outline" size={24} color={colors.textTertiary} />
+                      <Text style={[styles.fallbackPublisher, { color: colors.textTertiary }]}>
+                        {item.sourceName}
+                      </Text>
                     </View>
                   )}
 
                   <View style={styles.gridCardBody}>
                     <View style={styles.gridMetaRow}>
-                      <Text style={[typography.badge, { color: isDark ? catStyle.darkText : catStyle.text, fontSize: 9.5 }]}>
+                      <Text
+                        style={[
+                          typography.badge,
+                          { color: isDark ? catStyle.darkText : catStyle.accentColor, fontSize: 9.5 },
+                        ]}
+                      >
                         {item.category}
                       </Text>
                       <Text style={[typography.caption, { color: colors.textTertiary, fontSize: 10 }]}>
@@ -313,20 +356,30 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
                   </Text>
                 </View>
 
-                {item.imageUrl && (
+                {item.imageUrl ? (
                   <Image
                     source={{ uri: item.imageUrl }}
                     style={styles.listThumbnail}
                     contentFit="cover"
-                    transition={250}
+                    transition={200}
                   />
+                ) : (
+                  <View
+                    style={[
+                      styles.listThumbnail,
+                      styles.thumbnailFallback,
+                      { backgroundColor: isDark ? '#1E2536' : '#F1F5F9', borderColor: colors.borderLight },
+                    ]}
+                  >
+                    <Ionicons name="newspaper-outline" size={20} color={colors.textTertiary} />
+                  </View>
                 )}
               </TouchableOpacity>
             );
           }}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -335,21 +388,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 8,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   searchSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    gap: 9,
   },
   searchBar: {
     flex: 1,
-    height: 46,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 11,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -357,13 +410,13 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
     height: '100%',
   },
   viewToggleBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 11,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -372,29 +425,28 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   categoryChipsContainer: {
-    paddingHorizontal: 20,
-    gap: 8,
+    paddingHorizontal: 18,
+    gap: 7,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 13,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
   },
   loaderContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 18,
+    paddingTop: 12,
   },
   listContent: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 28,
-    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    gap: 11,
   },
   listCard: {
     flexDirection: 'row',
-    padding: 14,
-    borderRadius: 16,
+    padding: 13,
+    borderRadius: 14,
     borderWidth: 1,
     alignItems: 'center',
     shadowOffset: { width: 0, height: 1 },
@@ -409,28 +461,35 @@ const styles = StyleSheet.create({
   listMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   categoryPill: {
     paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
   },
   listTitle: {
-    lineHeight: 22,
+    lineHeight: 20,
+    fontSize: 14.5,
+    fontWeight: '600',
   },
   listThumbnail: {
-    width: 72,
-    height: 72,
-    borderRadius: 12,
+    width: 68,
+    height: 68,
+    borderRadius: 10,
     backgroundColor: '#E2E8F0',
   },
+  thumbnailFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
   gridColumnWrapper: {
-    gap: 12,
+    gap: 11,
   },
   gridCard: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 1 },
@@ -440,39 +499,47 @@ const styles = StyleSheet.create({
   },
   gridImage: {
     width: '100%',
-    height: 100,
+    height: 95,
     backgroundColor: '#E2E8F0',
   },
   gridImageFallback: {
     width: '100%',
-    height: 100,
+    height: 95,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 6,
+  },
+  fallbackPublisher: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    marginTop: 3,
   },
   gridCardBody: {
-    padding: 12,
+    padding: 10,
     flex: 1,
   },
   gridMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   gridTitle: {
-    lineHeight: 19,
-    marginBottom: 8,
+    lineHeight: 18,
+    fontSize: 13.5,
+    marginBottom: 6,
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 36,
+    paddingHorizontal: 32,
   },
   emptyCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -484,11 +551,11 @@ const styles = StyleSheet.create({
   emptyDesc: {
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   clearBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
     borderRadius: 10,
   },
 });

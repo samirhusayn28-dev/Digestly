@@ -16,6 +16,7 @@ export type Article = {
   sourceLogo?: string;
   category: string;
   imageUrl?: string;
+  body?: string;
   publishedAt: string;
   scrapedAt: string;
   isBreaking?: boolean;

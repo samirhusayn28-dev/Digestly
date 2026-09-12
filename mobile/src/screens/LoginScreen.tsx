@@ -3,15 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
   StatusBar,
-  Alert,
+  ScrollView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/types';
@@ -21,26 +23,35 @@ import {
   GOOGLE_CONFIG,
   signInWithGoogleTokens,
   syncUserProfileToFirestore,
-  auth,
 } from '../services/firebase';
+import { DigestlyLogo } from '../components/common/DigestlyLogo';
 
 WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  const { colors, typography } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { colors, typography, isDark } = useTheme();
   const setUser = useAppStore((state) => state.setUser);
+  const setIsGuest = useAppStore((state) => state.setIsGuest);
   const setHasCompletedOnboarding = useAppStore((state) => state.setHasCompletedOnboarding);
+
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Configure Expo Google Auth Request
+  // Configure Expo Google Auth Request with proper redirectUri
+  const redirectUri = makeRedirectUri({
+    scheme: 'digestly',
+    path: 'oauthredirect',
+  });
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: GOOGLE_CONFIG.webClientId,
     webClientId: GOOGLE_CONFIG.webClientId,
     iosClientId: GOOGLE_CONFIG.iosClientId,
     androidClientId: GOOGLE_CONFIG.androidClientId,
+    redirectUri,
     scopes: ['profile', 'email'],
   });
 
@@ -50,7 +61,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       handleFirebaseAuthWithGoogle(id_token, access_token);
     } else if (response?.type === 'error') {
       setLoading(false);
-      setErrorMessage(response.error?.message || 'Google sign in failed');
+      setErrorMessage(response.error?.message || 'Google Sign-In was cancelled or failed.');
     } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
       setLoading(false);
     }
@@ -70,12 +81,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       setUser(profile);
+      setIsGuest(false);
       setHasCompletedOnboarding(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.replace('Interests');
     } catch (err: any) {
       console.error('Firebase Google Auth Error:', err);
-      setErrorMessage(err.message || 'Authentication failed. Please try again.');
+      setErrorMessage(err.message || 'Authentication failed. You can continue as a Guest.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -87,12 +99,19 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     if (!request) {
-      // In development or environments where proxy request hasn't ready
-      Alert.alert(
-        'Connecting to Google',
-        'Google Auth Session is initializing. If you are running in Expo Go or Simulator without Google Services, you can also use Instant Sign-In below to explore.',
-        [{ text: 'OK' }]
-      );
+      // In development or environments without proxy initialization, promptAsync can be called directly
+      try {
+        setLoading(true);
+        const result = await promptAsync();
+        if (result.type !== 'success') {
+          setLoading(false);
+        }
+      } catch (err: any) {
+        setLoading(false);
+        setErrorMessage(
+          err.message || 'Google Auth is initializing. You may also Continue as Guest below.'
+        );
+      }
       return;
     }
 
@@ -101,76 +120,63 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       await promptAsync();
     } catch (err: any) {
       setLoading(false);
-      setErrorMessage(err.message || 'Could not launch Google Sign In');
+      setErrorMessage(err.message || 'Could not launch Google Sign In.');
     }
   };
 
-  // Demo Sign-In for testing environments (Simulators / CI without Google Play Services)
-  const handleQuickDemoSignIn = async () => {
-    try {
-      setLoading(true);
-      setErrorMessage(null);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      const demoProfile = await syncUserProfileToFirestore({
-        uid: 'demo-user-pakistan',
-        displayName: 'Ahmad Khan',
-        email: 'ahmad.khan@digestly.app',
-        photoURL: null,
-      });
-
-      setUser(demoProfile);
-      setHasCompletedOnboarding(true);
-      navigation.replace('Interests');
-    } catch (e) {
-      setUser({
-        uid: 'demo-user-pakistan',
-        displayName: 'Ahmad Khan',
-        email: 'ahmad.khan@digestly.app',
-        photoURL: null,
-        interests: ['Politics', 'Tech', 'Business'],
-        notificationPrefs: { breaking: true, politics: true, tech: true },
-      });
-      setHasCompletedOnboarding(true);
-      navigation.replace('Interests');
-    } finally {
-      setLoading(false);
-    }
+  // First-Class Guest Mode
+  const handleContinueAsGuest = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsGuest(true);
+    setUser(null);
+    setHasCompletedOnboarding(true);
+    navigation.replace('Interests');
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={colors.statusBarStyle} />
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top + 16,
+          paddingBottom: insets.bottom + 16,
+        },
+      ]}
+    >
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      <View style={styles.content}>
-        {/* Brand Emblem */}
-        <View style={[styles.emblemContainer, { backgroundColor: colors.accentSubtle }]}>
-          <Text style={[styles.emblemUrdu, { color: colors.accent }]}>مختصر</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Brand Monogram */}
+        <View style={styles.brandHeader}>
+          <DigestlyLogo size="lg" />
+          <Text style={[typography.h1, styles.title, { color: colors.textPrimary }]}>
+            Welcome to Digestly
+          </Text>
+          <Text style={[typography.body, styles.subtitle, { color: colors.textSecondary }]}>
+            High-bandwidth news intelligence from Pakistan’s leading publications.
+          </Text>
         </View>
 
-        <Text style={[typography.h1, styles.title, { color: colors.textPrimary }]}>
-          Enter Digestly
-        </Text>
-
-        <Text style={[typography.body, styles.subtitle, { color: colors.textSecondary }]}>
-          Distilled Pakistani journalism from Dawn, The Express Tribune, and Geo News powered by Groq AI.
-        </Text>
-
-        {/* Feature Highlights */}
+        {/* Value Prop Highlights */}
         <View
           style={[
             styles.featuresCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
           ]}
         >
           <View style={styles.featureItem}>
-            <View style={[styles.featureIconBox, { backgroundColor: colors.accentSubtle }]}>
-              <Ionicons name="flash" size={16} color={colors.accent} />
+            <View style={[styles.featureIconBox, { backgroundColor: colors.surface }]}>
+              <Ionicons name="flash-outline" size={16} color={colors.accentRed} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[typography.h4, { color: colors.textPrimary }]}>3-Line Summaries</Text>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 2 }]}>
-                Groq AI distills 1,000+ words into 3 essential takeaways
+              <Text style={[typography.h4, { color: colors.textPrimary }]}>3-Line Fact Briefs</Text>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 1 }]}>
+                Groq AI extracts key data points without opinion or fluff
               </Text>
             </View>
           </View>
@@ -178,13 +184,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
           <View style={styles.featureItem}>
-            <View style={[styles.featureIconBox, { backgroundColor: colors.accentSubtle }]}>
-              <Ionicons name="git-network" size={16} color={colors.accent} />
+            <View style={[styles.featureIconBox, { backgroundColor: colors.surface }]}>
+              <Ionicons name="git-network-outline" size={16} color={colors.accentBlue} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[typography.h4, { color: colors.textPrimary }]}>Multi-Source Radar</Text>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 2 }]}>
-                Compare Dawn, Tribune & Geo angles side-by-side
+              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 1 }]}>
+                Side-by-side coverage from Dawn, Express Tribune, and Geo
               </Text>
             </View>
           </View>
@@ -192,13 +198,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
           <View style={styles.featureItem}>
-            <View style={[styles.featureIconBox, { backgroundColor: colors.accentSubtle }]}>
-              <Ionicons name="cloud-done" size={16} color={colors.accent} />
+            <View style={[styles.featureIconBox, { backgroundColor: colors.surface }]}>
+              <Ionicons name="globe-outline" size={16} color={colors.accentYellow} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[typography.h4, { color: colors.textPrimary }]}>Cloud Sync</Text>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 2 }]}>
-                Saved stories and reading preferences synced across devices
+              <Text style={[typography.h4, { color: colors.textPrimary }]}>Bilingual Intelligence</Text>
+              <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 1 }]}>
+                Instant toggle between English and Urdu news summaries
               </Text>
             </View>
           </View>
@@ -206,15 +212,15 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Error message if any */}
         {errorMessage && (
-          <View style={[styles.errorBox, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
-            <Ionicons name="alert-circle" size={18} color="#DC2626" style={{ marginRight: 8 }} />
+          <View style={[styles.errorBox, { backgroundColor: isDark ? '#7F1D1D33' : '#FEF2F2' }]}>
+            <Ionicons name="alert-circle" size={16} color="#DC2626" style={{ marginRight: 8 }} />
             <Text style={[typography.bodySmall, { color: '#DC2626', flex: 1 }]}>
               {errorMessage}
             </Text>
           </View>
         )}
 
-        {/* Google Sign-In Button */}
+        {/* Primary Action: Google Sign-In */}
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={handleGooglePress}
@@ -232,7 +238,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             <ActivityIndicator size="small" color={colors.accent} />
           ) : (
             <>
-              <Ionicons name="logo-google" size={20} color="#EA4335" style={{ marginRight: 12 }} />
+              <Ionicons name="logo-google" size={18} color="#EA4335" style={{ marginRight: 10 }} />
               <Text style={[typography.button, { color: colors.textPrimary }]}>
                 Continue with Google
               </Text>
@@ -240,28 +246,42 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
 
-        {/* Quick Demo Sign In for Testing / Simulators */}
+        {/* Secondary Action: Continue as Guest */}
         <TouchableOpacity
-          onPress={handleQuickDemoSignIn}
+          activeOpacity={0.85}
+          onPress={handleContinueAsGuest}
           disabled={loading}
-          style={styles.demoLink}
+          style={[
+            styles.guestButton,
+            {
+              backgroundColor: isDark ? colors.surface : '#F1F5F9',
+              borderColor: colors.border,
+            },
+          ]}
         >
-          <Text style={[typography.bodySmall, { color: colors.accent, fontWeight: '600' }]}>
-            Quick Sign-In (Simulator Demo) →
+          <Ionicons
+            name="person-outline"
+            size={16}
+            color={colors.textSecondary}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={[typography.button, { color: colors.textPrimary, fontSize: 13.5 }]}>
+            Continue as Guest
           </Text>
         </TouchableOpacity>
-      </View>
+
+        <Text style={[typography.caption, styles.guestHint, { color: colors.textTertiary }]}>
+          Guest mode gives full access to dispatches, topics, and search without creating an account.
+        </Text>
+      </ScrollView>
 
       {/* Subtle Studio Xenos attribution */}
       <View style={styles.footer}>
-        <Text style={[typography.caption, styles.disclaimer, { color: colors.textTertiary }]}>
-          Digestly connects securely to Firebase Auth. Your personal data is never sold.
-        </Text>
-        <Text style={[typography.caption, { color: colors.textTertiary, marginTop: 6, letterSpacing: 0.3 }]}>
+        <Text style={[typography.caption, { color: colors.textTertiary, letterSpacing: 0.2 }]}>
           Made by Studio Xenos
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -270,92 +290,100 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emblemContainer: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
+  brandHeader: {
     alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 20,
-  },
-  emblemUrdu: {
-    fontSize: 26,
-    fontWeight: '700',
   },
   title: {
     textAlign: 'center',
-    marginBottom: 8,
+    marginTop: 14,
+    marginBottom: 6,
   },
   subtitle: {
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-    paddingHorizontal: 8,
+    lineHeight: 20,
+    paddingHorizontal: 12,
   },
   featuresCard: {
     width: '100%',
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
-    marginBottom: 24,
+    padding: 14,
+    marginBottom: 20,
+    maxWidth: 420,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   featureIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   divider: {
     height: 1,
-    marginVertical: 10,
+    marginVertical: 8,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
+    maxWidth: 420,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 12,
   },
   googleButton: {
     width: '100%',
-    height: 54,
-    borderRadius: 14,
+    maxWidth: 420,
+    height: 48,
+    borderRadius: 12,
     borderWidth: 1.2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+    marginBottom: 10,
   },
-  demoLink: {
-    marginTop: 18,
-    paddingVertical: 6,
+  guestButton: {
+    width: '100%',
+    maxWidth: 420,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestHint: {
+    textAlign: 'center',
+    marginTop: 10,
+    paddingHorizontal: 20,
+    lineHeight: 15,
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingTop: 8,
     alignItems: 'center',
-  },
-  disclaimer: {
-    textAlign: 'center',
-    lineHeight: 16,
   },
 });

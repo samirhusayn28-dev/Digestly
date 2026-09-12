@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,30 +15,40 @@ import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
 import { auth, syncUserProfileToFirestore } from '../services/firebase';
+import { DigestlyLogo } from '../components/common/DigestlyLogo';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
 export const SplashScreen: React.FC<Props> = ({ navigation }) => {
-  const { colors, typography } = useTheme();
+  const { colors, typography, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const hasCompletedOnboarding = useAppStore((state) => state.hasCompletedOnboarding);
   const hasSelectedInterests = useAppStore((state) => state.hasSelectedInterests);
+  const isGuest = useAppStore((state) => state.isGuest);
   const user = useAppStore((state) => state.user);
   const setUser = useAppStore((state) => state.setUser);
+  const hasSeenFreshSplash = useAppStore((state) => state.hasSeenFreshSplash);
+  const setHasSeenFreshSplash = useAppStore((state) => state.setHasSeenFreshSplash);
 
-  // Animations
-  const logoScale = useSharedValue(0.7);
+  // Animation values
+  const logoScale = useSharedValue(0.8);
   const logoOpacity = useSharedValue(0);
   const textOpacity = useSharedValue(0);
   const footerOpacity = useSharedValue(0);
 
   useEffect(() => {
-    // Start animations
-    logoOpacity.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.ease) });
-    logoScale.value = withSpring(1, { damping: 12, stiffness: 100 });
-    textOpacity.value = withDelay(300, withTiming(1, { duration: 600 }));
-    footerOpacity.value = withDelay(600, withTiming(1, { duration: 500 }));
+    // If returning user who has completed onboarding/guest mode, route to MainTabs immediately
+    if (hasCompletedOnboarding || isGuest) {
+      navigation.replace('MainTabs');
+      return;
+    }
 
-    // Firebase Auth listener with timeout safety
+    // Fresh install animations
+    logoOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) });
+    logoScale.value = withSpring(1, { damping: 14, stiffness: 120 });
+    textOpacity.value = withDelay(250, withTiming(1, { duration: 500 }));
+    footerOpacity.value = withDelay(500, withTiming(1, { duration: 400 }));
+
     let isNavigated = false;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -51,13 +62,12 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           });
           setUser(profile);
         } catch {
-          // fallback if offline
           setUser({
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName,
             email: firebaseUser.email,
             photoURL: firebaseUser.photoURL,
-            interests: user?.interests || ['Politics', 'Tech', 'Business'],
+            interests: user?.interests || ['Top Stories', 'Politics', 'Tech', 'Business'],
             notificationPrefs: user?.notificationPrefs || { breaking: true },
           });
         }
@@ -67,23 +77,24 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     const timer = setTimeout(() => {
       if (isNavigated) return;
       isNavigated = true;
+      setHasSeenFreshSplash(true);
 
-      if (!hasCompletedOnboarding) {
+      if (!hasCompletedOnboarding && !isGuest) {
         navigation.replace('Onboarding');
-      } else if (!auth.currentUser && !user) {
+      } else if (!auth.currentUser && !user && !isGuest) {
         navigation.replace('Login');
-      } else if (!hasSelectedInterests) {
+      } else if (!hasSelectedInterests && !isGuest) {
         navigation.replace('Interests');
       } else {
         navigation.replace('MainTabs');
       }
-    }, 1900);
+    }, 1500);
 
     return () => {
       unsubscribe();
       clearTimeout(timer);
     };
-  }, [hasCompletedOnboarding, hasSelectedInterests, user, navigation]);
+  }, [hasCompletedOnboarding, hasSelectedInterests, isGuest, user, navigation, setHasSeenFreshSplash]);
 
   const animatedLogoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
@@ -99,39 +110,43 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   }));
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={colors.statusBarStyle} />
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top + 20,
+          paddingBottom: insets.bottom + 16,
+        },
+      ]}
+    >
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <View style={styles.centerContent}>
-        {/* Animated Brand Emblem */}
-        <Animated.View
-          style={[
-            styles.badgeContainer,
-            { backgroundColor: colors.accentSubtle },
-            animatedLogoStyle,
-          ]}
-        >
-          <Text style={[styles.urduText, { color: colors.accent }]}>مختصر</Text>
+        {/* Geometric Editorial "D" Mark */}
+        <Animated.View style={animatedLogoStyle}>
+          <DigestlyLogo size="xl" />
         </Animated.View>
 
+        {/* Clean Editorial Title & Modern News Tagline */}
         <Animated.View style={[styles.textBlock, animatedTextStyle]}>
           <Text style={[typography.display, styles.title, { color: colors.textPrimary }]}>
             Digestly
           </Text>
 
-          <Text style={[typography.bodyMedium, styles.tagline, { color: colors.textSecondary }]}>
-            Pakistan’s Stories, Distilled
+          <Text style={[typography.body, styles.tagline, { color: colors.textSecondary }]}>
+            Modern News
           </Text>
         </Animated.View>
       </View>
 
       {/* Subtle maker credit line as mandated */}
       <Animated.View style={[styles.footer, animatedFooterStyle]}>
-        <Text style={[typography.caption, { color: colors.textTertiary, letterSpacing: 0.4 }]}>
+        <Text style={[typography.caption, { color: colors.textTertiary, letterSpacing: 0.3 }]}>
           Made by Studio Xenos
         </Text>
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -140,45 +155,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingHorizontal: 24,
   },
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  badgeContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  urduText: {
-    fontSize: 32,
-    fontWeight: '700',
-  },
   textBlock: {
     alignItems: 'center',
+    marginTop: 18,
   },
   title: {
-    marginTop: 4,
     textAlign: 'center',
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
   },
   tagline: {
-    marginTop: 8,
+    marginTop: 6,
     textAlign: 'center',
-    letterSpacing: 0.2,
+    letterSpacing: 0.4,
   },
   footer: {
-    paddingBottom: 16,
     alignItems: 'center',
   },
 });

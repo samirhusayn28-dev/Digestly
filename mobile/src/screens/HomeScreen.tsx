@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   TouchableOpacity,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,6 +26,9 @@ import {
   seedFirestoreArticlesIfEmpty,
 } from '../services/articles';
 import { ArticleCard } from '../components/feed/ArticleCard';
+import { BentoCard } from '../components/feed/BentoCard';
+import { DigestlyLogo } from '../components/common/DigestlyLogo';
+import { ReturningUserLoader } from '../components/common/ReturningUserLoader';
 import { ArticleCardSkeleton } from '../components/common/SkeletonLoader';
 import { CustomRefreshHeader } from '../components/feed/CustomRefreshHeader';
 
@@ -34,12 +37,36 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const FEED_FILTERS = ['For You', 'Politics', 'Business', 'Tech', 'Sports', 'World', 'Entertainment'];
+const FEED_CATEGORIES = [
+  'For You',
+  'Top Stories',
+  'Politics',
+  'Business',
+  'Finance',
+  'Tech',
+  'AI',
+  'Science',
+  'Health',
+  'Sports',
+  'World',
+  'Entertainment',
+  'Culture',
+  'Lifestyle',
+  'Education',
+  'Environment',
+  'Travel',
+  'Food',
+  'Automotive',
+];
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { colors, typography } = useTheme();
+  const { colors, typography, isDark } = useTheme();
+
   const selectedInterests = useAppStore((state) => state.selectedInterests);
+  const newsLanguage = useAppStore((state) => state.newsLanguage);
+  const setNewsLanguage = useAppStore((state) => state.setNewsLanguage);
 
   const flatListRef = useRef<FlatList>(null);
   const [activeFilter, setActiveFilter] = useState('For You');
@@ -51,8 +78,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
 
   const isTablet = width >= 768;
+  const isUrdu = newsLanguage === 'ur';
 
   // Load articles
   const loadArticles = useCallback(
@@ -71,7 +100,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         const categoryParam = activeFilter === 'For You' ? 'All' : activeFilter;
         const result = await fetchArticlesFromFirestore({
           category: categoryParam,
-          pageSize: 6,
+          pageSize: 8,
           userInterests: selectedInterests,
         });
 
@@ -130,6 +159,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setActiveFilter(filter);
   };
 
+  const handleToggleLanguage = () => {
+    Haptics.selectionAsync();
+    setNewsLanguage(newsLanguage === 'en' ? 'ur' : 'en');
+  };
+
   const handleScrollToTop = () => {
     Haptics.selectionAsync();
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -152,23 +186,55 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const breakingArticle = articles.find((a) => a.isBreaking);
 
+  // Bento layout separation for For You / Top Stories
+  const showBento =
+    (activeFilter === 'For You' || activeFilter === 'Top Stories') &&
+    articles.length >= 3;
+
+  const heroArticle = showBento ? articles[0] : null;
+  const secondaryArticles = showBento ? [articles[1], articles[2]] : [];
+  const feedArticles = showBento ? articles.slice(3) : articles;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar barStyle={colors.statusBarStyle} />
 
       {/* Editorial Header */}
       <View style={[styles.topBar, { borderBottomColor: colors.borderLight }]}>
-        <View>
-          <Text style={[typography.caption, { color: colors.textTertiary, textTransform: 'uppercase' }]}>
+        <View style={styles.headerLeft}>
+          <Text style={[typography.caption, { color: colors.textTertiary, textTransform: 'uppercase', fontSize: 10.5 }]}>
             {currentDate} • Pakistan Radar
           </Text>
           <View style={styles.brandRow}>
-            <Text style={[typography.h1, { color: colors.textPrimary, letterSpacing: -0.5 }]}>
+            <DigestlyLogo size="sm" />
+            <Text style={[typography.h1, { color: colors.textPrimary, letterSpacing: -0.5, marginLeft: 8 }]}>
               Digestly
             </Text>
-            <View style={[styles.urduPill, { backgroundColor: colors.accentSubtle }]}>
-              <Text style={[styles.urduPillText, { color: colors.accent }]}>مختصر</Text>
-            </View>
+
+            {/* Quick Language Toggle Pill */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleToggleLanguage}
+              style={[
+                styles.languagePill,
+                {
+                  backgroundColor: isUrdu ? colors.accent : colors.surfaceSubtle,
+                  borderColor: isUrdu ? colors.accent : colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  typography.badge,
+                  {
+                    color: isUrdu ? (isDark ? '#000000' : '#FFFFFF') : colors.textPrimary,
+                    fontSize: 10.5,
+                  },
+                ]}
+              >
+                {isUrdu ? 'اردو' : 'EN'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -176,21 +242,24 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity
             onPress={handleRefresh}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={[styles.actionIconBtn, { backgroundColor: colors.surfaceSubtle }]}
+            style={[styles.actionIconBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
           >
-            <Ionicons name="sync-outline" size={19} color={colors.textSecondary} />
+            <Ionicons name="sync-outline" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => navigation.navigate('Discover')}
-            style={[styles.actionIconBtn, { backgroundColor: colors.surfaceSubtle, marginLeft: 8 }]}
+            style={[
+              styles.actionIconBtn,
+              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight, marginLeft: 8 },
+            ]}
           >
-            <Ionicons name="search-outline" size={19} color={colors.textSecondary} />
+            <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Breaking News Ticker if active */}
+      {/* Breaking News Ticker */}
       {breakingArticle && (
         <TouchableOpacity
           activeOpacity={0.9}
@@ -198,26 +267,29 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           style={[styles.breakingTicker, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}
         >
           <View style={styles.tickerBadge}>
-            <Ionicons name="flame" size={13} color="#DC2626" />
-            <Text style={[typography.badge, { color: '#DC2626', marginLeft: 3, fontSize: 10 }]}>
+            <Ionicons name="flash" size={12} color="#DC2626" />
+            <Text style={[typography.badge, { color: '#DC2626', marginLeft: 3, fontSize: 9.5 }]}>
               BREAKING
             </Text>
           </View>
-          <Text numberOfLines={1} style={[typography.bodySmall, { color: '#991B1B', flex: 1, fontWeight: '600' }]}>
+          <Text
+            numberOfLines={1}
+            style={[typography.bodySmall, { color: '#991B1B', flex: 1, fontWeight: '600' }]}
+          >
             {breakingArticle.title}
           </Text>
-          <Ionicons name="chevron-forward" size={14} color="#DC2626" />
+          <Ionicons name="chevron-forward" size={13} color="#DC2626" />
         </TouchableOpacity>
       )}
 
-      {/* Filter Chips Bar */}
+      {/* 18-Category Horizontal Filter Bar */}
       <View style={styles.filterSection}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScroll}
         >
-          {FEED_FILTERS.map((f) => {
+          {FEED_CATEGORIES.map((f) => {
             const isSelected = activeFilter === f;
             return (
               <TouchableOpacity
@@ -234,8 +306,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 {f === 'For You' && (
                   <Ionicons
                     name="sparkles"
-                    size={12}
-                    color={isSelected ? '#FFFFFF' : colors.accent}
+                    size={11}
+                    color={isSelected ? (isDark ? '#000000' : '#FFFFFF') : colors.accent}
                     style={{ marginRight: 4 }}
                   />
                 )}
@@ -243,7 +315,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   style={[
                     typography.badge,
                     {
-                      color: isSelected ? '#FFFFFF' : colors.textSecondary,
+                      color: isSelected ? (isDark ? '#000000' : '#FFFFFF') : colors.textSecondary,
                       fontSize: 11,
                     },
                   ]}
@@ -269,7 +341,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       ) : error ? (
         <View style={styles.errorState}>
           <View style={[styles.errorCircle, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="cloud-offline-outline" size={40} color="#DC2626" />
+            <Ionicons name="cloud-offline-outline" size={36} color="#DC2626" />
           </View>
           <Text style={[typography.h2, styles.errorTitle, { color: colors.textPrimary }]}>
             Connection Interrupted
@@ -282,20 +354,27 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => loadArticles(false)}
             style={[styles.retryBtn, { backgroundColor: colors.accent }]}
           >
-            <Ionicons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={[typography.button, { color: '#FFFFFF' }]}>Try Again</Text>
+            <Ionicons
+              name="refresh"
+              size={15}
+              color={isDark ? '#000000' : '#FFFFFF'}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[typography.button, { color: isDark ? '#000000' : '#FFFFFF' }]}>
+              Try Again
+            </Text>
           </TouchableOpacity>
         </View>
       ) : articles.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={[styles.emptyCircle, { backgroundColor: colors.surfaceSubtle }]}>
-            <Ionicons name="newspaper-outline" size={40} color={colors.textTertiary} />
+            <Ionicons name="newspaper-outline" size={36} color={colors.textTertiary} />
           </View>
           <Text style={[typography.h2, styles.emptyTitle, { color: colors.textPrimary }]}>
             No stories in {activeFilter}
           </Text>
           <Text style={[typography.body, styles.emptyDesc, { color: colors.textSecondary }]}>
-            Check back shortly when the 30-minute Groq scraper runs, or explore other categories.
+            Check back shortly or explore other categories.
           </Text>
           <TouchableOpacity
             onPress={() => setActiveFilter('For You')}
@@ -307,17 +386,61 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       ) : (
         <FlatList
           ref={flatListRef}
-          data={articles}
+          data={feedArticles}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.listContent,
-            { maxWidth: isTablet ? 740 : '100%', alignSelf: 'center', width: '100%' },
+            {
+              maxWidth: isTablet ? 740 : '100%',
+              alignSelf: 'center',
+              width: '100%',
+              paddingBottom: insets.bottom + 85,
+            },
           ]}
           showsVerticalScrollIndicator={false}
           onScroll={onScroll}
           scrollEventThrottle={16}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.4}
+          ListHeaderComponent={
+            showBento && heroArticle ? (
+              <View style={styles.bentoSection}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[typography.badge, { color: colors.textTertiary, textTransform: 'uppercase' }]}>
+                    Radar Highlights
+                  </Text>
+                  <View style={[styles.sectionDivider, { backgroundColor: colors.borderLight }]} />
+                </View>
+
+                {/* Hero Bento Card */}
+                <BentoCard
+                  article={heroArticle}
+                  variant="hero"
+                  onPress={() => navigation.navigate('ArticleDetail', { article: heroArticle })}
+                />
+
+                {/* Secondary 2-Column Bento Cards */}
+                <View style={[styles.secondaryBentoRow, { gap: 12 }]}>
+                  {secondaryArticles.map((item) => (
+                    <View key={item.id} style={{ flex: 1 }}>
+                      <BentoCard
+                        article={item}
+                        variant="secondary"
+                        onPress={() => navigation.navigate('ArticleDetail', { article: item })}
+                      />
+                    </View>
+                  ))}
+                </View>
+
+                <View style={[styles.sectionHeaderRow, { marginTop: 14, marginBottom: 12 }]}>
+                  <Text style={[typography.badge, { color: colors.textTertiary, textTransform: 'uppercase' }]}>
+                    Latest Dispatches
+                  </Text>
+                  <View style={[styles.sectionDivider, { backgroundColor: colors.borderLight }]} />
+                </View>
+              </View>
+            ) : null
+          }
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footerLoader}>
@@ -345,12 +468,27 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={handleScrollToTop}
-          style={[styles.scrollTopBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[
+            styles.scrollTopBtn,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              bottom: insets.bottom + 65,
+            },
+          ]}
         >
-          <Ionicons name="arrow-up" size={18} color={colors.accent} />
+          <Ionicons name="arrow-up" size={17} color={colors.accent} />
         </TouchableOpacity>
       )}
-    </SafeAreaView>
+
+      {/* Returning User Soft Sweep Loader */}
+      {showLoader && (
+        <ReturningUserLoader
+          accentColorChoice="yellow"
+          onFinish={() => setShowLoader(false)}
+        />
+      )}
+    </View>
   );
 };
 
@@ -362,41 +500,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingVertical: 10,
     borderBottomWidth: 1,
+  },
+  headerLeft: {
+    flex: 1,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: 3,
   },
-  urduPill: {
+  languagePill: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-  urduPillText: {
-    fontSize: 14,
-    fontWeight: '700',
+    paddingVertical: 3,
+    borderRadius: 7,
+    marginLeft: 10,
+    borderWidth: 1,
   },
   topActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   breakingTicker: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderBottomWidth: 1,
     gap: 8,
   },
@@ -404,54 +543,69 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEE2E2',
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 4,
   },
   filterSection: {
-    paddingVertical: 10,
+    paddingVertical: 9,
   },
   filterScroll: {
-    paddingHorizontal: 20,
-    gap: 8,
+    paddingHorizontal: 18,
+    gap: 7,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
   },
+  bentoSection: {
+    marginBottom: 6,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+  },
+  sectionDivider: {
+    flex: 1,
+    height: 1,
+  },
+  secondaryBentoRow: {
+    flexDirection: 'row',
+  },
   skeletonContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingVertical: 8,
   },
   listContent: {
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 32,
+    paddingHorizontal: 18,
+    paddingTop: 4,
   },
   footerLoader: {
-    marginTop: 8,
+    marginTop: 6,
   },
   endOfFeed: {
-    paddingVertical: 24,
+    paddingVertical: 20,
     alignItems: 'center',
   },
   errorState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 36,
+    paddingHorizontal: 32,
   },
   errorCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 18,
+    marginBottom: 16,
   },
   errorTitle: {
     textAlign: 'center',
@@ -459,29 +613,29 @@ const styles = StyleSheet.create({
   },
   errorDesc: {
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: 20,
+    marginBottom: 20,
   },
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 36,
+    paddingHorizontal: 32,
   },
   emptyCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 18,
+    marginBottom: 16,
   },
   emptyTitle: {
     textAlign: 'center',
@@ -489,28 +643,27 @@ const styles = StyleSheet.create({
   },
   emptyDesc: {
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: 20,
+    marginBottom: 20,
   },
   resetFilterBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   scrollTopBtn: {
     position: 'absolute',
-    bottom: 24,
-    right: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    right: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
     elevation: 4,
   },
 });
