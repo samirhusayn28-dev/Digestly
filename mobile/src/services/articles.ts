@@ -18,6 +18,9 @@ export const REALISTIC_SEED_ARTICLES: Article[] = [
   {
     id: 'sbp-rate-decision-2025',
     title: 'State Bank Maintains Benchmark Policy Rate at 11% Amid Disinflation Trend',
+    paragraphSummary:
+      'The State Bank of Pakistan decided to maintain its benchmark policy rate unchanged at 11% during Saturday’s monetary policy review. Officials cited steady disinflation and an improving current account balance as decisive factors supporting economic stabilization. The central bank emphasized that while industrial output has shown signs of recovery, cautious vigilance is required against global commodity fluctuations. Key analysts project that gradual easing could begin later in the fiscal cycle if inflationary pressures remain anchored.',
+    highlightPhrases: ['State Bank of Pakistan', '11%', 'steady disinflation', 'monetary policy review'],
     summary: [
       'The Monetary Policy Committee noted that headline CPI has stabilized within the medium-term 5–7% range.',
       'A persistent current account surplus and disciplined fiscal policy supported currency stabilization at 278/USD.',
@@ -48,6 +51,9 @@ export const REALISTIC_SEED_ARTICLES: Article[] = [
   {
     id: 'it-exports-cross-record',
     title: 'Pakistan Tech Export Receipts Hit All-Time High of $3.2B in Fiscal Run',
+    paragraphSummary:
+      'Pakistan’s information technology export receipts surged to an all-time record of $3.2 billion over the ongoing fiscal period. The impressive 28% year-on-year growth was driven primarily by freelance engineering talent and expanding global cloud computing agreements. Ministry officials noted that streamlined foreign currency retention protocols enacted by the central bank have incentivized tech enterprises to repatriate overseas earnings. New technological incubation zones across Islamabad and Lahore contributed substantially to the milestone tally.',
+    highlightPhrases: ['$3.2 billion', '28% year-on-year', 'cloud computing agreements', 'Islamabad and Lahore'],
     summary: [
       'IT remittances expanded 28% year-on-year, driven by freelance software engineers and enterprise cloud contracts.',
       'Special Technology Zones (STZ) in Islamabad and Lahore contributed over $650M in exports during H1.',
@@ -71,13 +77,16 @@ export const REALISTIC_SEED_ARTICLES: Article[] = [
         sourceName: 'Geo News',
         sourceUrl: 'https://geo.tv/latest/tech-exports-pakistan',
         headline: 'IT Minister pledges broadband expansion across 45 underserved districts by year-end',
-        angleHighlight: 'Spotlights government infrastructure pledges and 5G spectrum auction roadmap.',
+        angleHighlight: 'Spotlights government infrastructure pledges and 5G spectrum roadmap.',
       },
     ],
   },
   {
     id: 'champions-trophy-lahore',
     title: 'Qaddafi Stadium Unveils State-of-the-Art Pavilion Ahead of Champions Trophy',
+    paragraphSummary:
+      'The Pakistan Cricket Board officially inaugurated the refurbished 38,000-seat main pavilion at Qaddafi Stadium in Lahore. The venue underwent extensive structural modernization to meet international standards for the forthcoming Champions Trophy tournament. International Cricket Council inspectors expressed complete satisfaction with pitch quality, floodlight luminance, and athlete facilities during their final venue review. Opening fixture tickets were rapidly snapped up within minutes of box office availability.',
+    highlightPhrases: ['Pakistan Cricket Board', 'Qaddafi Stadium', 'Champions Trophy', '38,000-seat'],
     summary: [
       'The Pakistan Cricket Board inaugurated the newly renovated 38,000-capacity pavilion in Lahore.',
       'ICC venue inspection delegation gave unconditional approval to pitch, lighting, and player enclosure standards.',
@@ -108,6 +117,9 @@ export const REALISTIC_SEED_ARTICLES: Article[] = [
   {
     id: 'electoral-reforms-parliament',
     title: 'Parliamentary Committee Reaches Consensus on Digital Voting Machine Framework',
+    paragraphSummary:
+      'Lawmakers across treasury and opposition benches reached formal consensus on a standardized digital voting architecture for future electoral cycles. The joint parliamentary committee ratified technical specifications that mandate open-source cryptographic auditability. Under the phased roadmap, registered overseas Pakistanis in selected trial regions will gain access to an encrypted i-voting platform during provincial by-elections. NADRA and the Election Commission will coordinate data sovereignty protocols.',
+    highlightPhrases: ['formal consensus', 'digital voting architecture', 'overseas Pakistanis', 'NADRA'],
     summary: [
       'Treasury and opposition representatives agreed on an open-source technical architecture for electronic ballots.',
       'Overseas Pakistanis in Gulf and North America will gain pilot i-voting portal access in by-elections.',
@@ -138,6 +150,9 @@ export const REALISTIC_SEED_ARTICLES: Article[] = [
   {
     id: 'shanghai-cooperation-energy',
     title: 'Pakistan Signs Trilateral Clean Power Grid Memorandum at SCO Energy Forum',
+    paragraphSummary:
+      'A tripartite memorandum was ratified between energy authorities of Pakistan, Kazakhstan, and China at the Shanghai Cooperation Organization summit. The agreement establishes high-voltage direct current grid interconnectors aimed at transferring 2,000 megawatts of clean hydropower during high-demand summer peaks. Concessionary financing frameworks are being structured with multilateral development lenders to begin feasibility groundwork. Officials called the pact a vital step toward regional energy security and lower power costs.',
+    highlightPhrases: ['2,000 megawatts', 'clean hydropower', 'high-voltage direct current', 'energy security'],
     summary: [
       'Tripartite accord between Pakistan, Kazakhstan, and China paves way for high-voltage DC interconnectors.',
       'Project targets routing 2,000 MW of regional hydropower to northern industrial zones in peak summer.',
@@ -162,6 +177,9 @@ export const REALISTIC_SEED_ARTICLES: Article[] = [
   {
     id: 'coke-studio-season-16',
     title: 'Coke Studio Season 16 Announced With Groundbreaking Sufi-Electronic Collaborations',
+    paragraphSummary:
+      'The lineup for Coke Studio Season 16 was officially unveiled, highlighting an ambitious fusion of indigenous folk music and contemporary electronic synthesis. Curated by leading producers, the new season features traditional instrumentalists from Gilgit-Baltistan and Balochistan recording alongside diaspora audio engineers. All 12 studio recordings will be produced in spatial audio formats for worldwide listeners. Music critics celebrated the program for bridging regional heritage with cutting-edge production.',
+    highlightPhrases: ['Coke Studio Season 16', 'Gilgit-Baltistan and Balochistan', 'spatial audio', 'indigenous folk'],
     summary: [
       'Producer Zulfiqar Jabbar Khan (Xulfi) unveiled a 12-track lineup featuring global diaspora producers.',
       'Season integrates folk instrumentalists from Gilgit-Baltistan and Balochistan with modular synthesizers.',
@@ -265,6 +283,8 @@ export async function fetchArticlesFromFirestore(
           id: docSnap.id,
           title: data.title,
           summary: Array.isArray(data.summary) ? data.summary : [data.summary],
+          paragraphSummary: data.paragraphSummary,
+          highlightPhrases: Array.isArray(data.highlightPhrases) ? data.highlightPhrases : [],
           sourceName: data.sourceName || 'Dawn',
           sourceUrl: data.sourceUrl || 'https://www.dawn.com',
           category: data.category || 'General',

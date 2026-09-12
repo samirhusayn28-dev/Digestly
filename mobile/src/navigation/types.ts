@@ -17,6 +17,8 @@ export type Article = {
   category: string;
   imageUrl?: string;
   body?: string;
+  paragraphSummary?: string;
+  highlightPhrases?: string[];
   publishedAt: string;
   scrapedAt: string;
   isBreaking?: boolean;

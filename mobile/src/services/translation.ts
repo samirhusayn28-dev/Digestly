@@ -80,6 +80,7 @@ export async function translateText(text: string, targetLang: 'ur' | 'en' = 'ur'
 export interface TranslatedArticleData {
   title: string;
   summary: string[];
+  paragraphSummary?: string;
   body?: string;
   isUrdu: boolean;
 }
@@ -95,14 +96,16 @@ export async function translateArticleContent(
     return {
       title: article.title,
       summary: article.summary,
+      paragraphSummary: article.paragraphSummary,
       body: article.body,
       isUrdu: false,
     };
   }
 
   try {
-    const [translatedTitle, ...translatedBullets] = await Promise.all([
+    const [translatedTitle, translatedParagraph, ...translatedBullets] = await Promise.all([
       translateText(article.title, 'ur'),
+      article.paragraphSummary ? translateText(article.paragraphSummary, 'ur') : Promise.resolve(undefined),
       ...article.summary.map((bullet) => translateText(bullet, 'ur')),
     ]);
 
@@ -114,6 +117,7 @@ export async function translateArticleContent(
     return {
       title: translatedTitle || article.title,
       summary: translatedBullets.length > 0 ? translatedBullets : article.summary,
+      paragraphSummary: translatedParagraph || article.paragraphSummary,
       body: translatedBody || article.body,
       isUrdu: true,
     };
@@ -121,6 +125,7 @@ export async function translateArticleContent(
     return {
       title: article.title,
       summary: article.summary,
+      paragraphSummary: article.paragraphSummary,
       body: article.body,
       isUrdu: false,
     };

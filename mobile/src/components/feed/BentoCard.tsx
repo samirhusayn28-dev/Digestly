@@ -11,6 +11,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  withSequence,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +47,7 @@ export const BentoCard: React.FC<BentoCardProps> = ({
 
   // Spring scale micro-interaction
   const cardScale = useSharedValue(1);
+  const bookmarkScale = useSharedValue(1);
 
   const handlePressIn = () => {
     cardScale.value = withSpring(0.985, { damping: 15, stiffness: 300 });
@@ -56,6 +59,10 @@ export const BentoCard: React.FC<BentoCardProps> = ({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: cardScale.value }],
+  }));
+
+  const animatedBookmarkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bookmarkScale.value }],
   }));
 
   // Handle translation when newsLanguage is Urdu
@@ -83,6 +90,10 @@ export const BentoCard: React.FC<BentoCardProps> = ({
   const handleBookmark = (e: any) => {
     e.stopPropagation?.();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    bookmarkScale.value = withSequence(
+      withTiming(1.35, { duration: 100 }),
+      withSpring(1, { damping: 10, stiffness: 350 })
+    );
     toggleBookmark(article.id);
   };
 
@@ -164,11 +175,13 @@ export const BentoCard: React.FC<BentoCardProps> = ({
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 style={styles.heroBookmarkBtn}
               >
-                <Ionicons
-                  name={isSaved ? 'bookmark' : 'bookmark-outline'}
-                  size={18}
-                  color="#FFFFFF"
-                />
+                <Animated.View style={animatedBookmarkStyle}>
+                  <Ionicons
+                    name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                </Animated.View>
               </TouchableOpacity>
             </View>
 

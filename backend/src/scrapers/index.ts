@@ -4,6 +4,7 @@ import { scrapeTribuneNews } from './tribune.js';
 import { scrapeGeoNews } from './geo.js';
 import { summarizeAndCategorizeArticle } from '../services/groq.js';
 import { saveArticlesToFirestore } from '../services/firebase-admin.js';
+import { sendBreakingNewsPushNotifications } from '../services/push.js';
 import { ScrapedRawArticle, ProcessedArticle, RelatedSource } from '../types/index.js';
 
 function generateArticleId(sourceName: string, title: string): string {
@@ -120,7 +121,8 @@ export async function runScrapingPipeline(): Promise<{
 
   for (const raw of batchToProcess) {
     try {
-      const { summary, category, isBreaking } = await summarizeAndCategorizeArticle(raw);
+      const { summary, paragraphSummary, highlightPhrases, category, isBreaking } =
+        await summarizeAndCategorizeArticle(raw);
       const id = generateArticleId(raw.sourceName, raw.title);
       const related = relatedMap.get(raw.title) || [];
 
@@ -128,6 +130,8 @@ export async function runScrapingPipeline(): Promise<{
         id,
         title: raw.title,
         summary,
+        paragraphSummary,
+        highlightPhrases,
         sourceName: raw.sourceName,
         sourceUrl: raw.sourceUrl,
         category,
@@ -147,6 +151,13 @@ export async function runScrapingPipeline(): Promise<{
   // Step 4: Save to Firestore
   const { saved } = await saveArticlesToFirestore(processedArticles);
   console.log(`Saved ${saved} articles to Firestore`);
+
+  // Step 5: Send push notifications for breaking articles
+  const breakingArticles = processedArticles.filter((a) => a.isBreaking);
+  if (breakingArticles.length > 0) {
+    console.log(`Detected ${breakingArticles.length} breaking news articles, dispatching push notifications...`);
+    await sendBreakingNewsPushNotifications(breakingArticles);
+  }
 
   return {
     scrapedCount: rawArticles.length,

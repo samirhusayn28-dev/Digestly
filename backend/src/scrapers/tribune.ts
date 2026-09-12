@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { ScrapedRawArticle } from '../types/index.js';
+import { extractOgImage, getFallbackImageForCategory } from './imageHelper.js';
 
 export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
   const articles: ScrapedRawArticle[] = [];
@@ -14,7 +15,8 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
       const response = await axios.get(url, {
         timeout: 8000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           Accept: 'application/rss+xml, application/xml, text/xml, */*',
         },
       });
@@ -48,11 +50,28 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
           const lowerCat = rawCategory.toLowerCase();
           const lowerTitle = title.toLowerCase();
 
-          if (lowerCat.includes('business') || lowerCat.includes('economy') || lowerTitle.includes('sbp') || lowerTitle.includes('psx')) {
+          if (
+            lowerCat.includes('business') ||
+            lowerCat.includes('economy') ||
+            lowerTitle.includes('sbp') ||
+            lowerTitle.includes('psx') ||
+            lowerTitle.includes('rupee') ||
+            lowerTitle.includes('market')
+          ) {
             category = 'Business';
-          } else if (lowerCat.includes('tech') || lowerTitle.includes('tech') || lowerTitle.includes('ai')) {
+          } else if (
+            lowerCat.includes('tech') ||
+            lowerTitle.includes('tech') ||
+            lowerTitle.includes('ai') ||
+            lowerTitle.includes('digital')
+          ) {
             category = 'Tech';
-          } else if (lowerCat.includes('sports') || lowerTitle.includes('cricket') || lowerTitle.includes('match')) {
+          } else if (
+            lowerCat.includes('sports') ||
+            lowerTitle.includes('cricket') ||
+            lowerTitle.includes('match') ||
+            lowerTitle.includes('pcb')
+          ) {
             category = 'Sports';
           } else if (lowerCat.includes('life') || lowerCat.includes('entertainment')) {
             category = 'Entertainment';
@@ -66,7 +85,7 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
             sourceName: 'The Express Tribune',
             sourceUrl: link,
             category,
-            imageUrl: imageUrl || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=600&q=80',
+            imageUrl: imageUrl || getFallbackImageForCategory(category),
             publishedAt: pubDate || 'Recently',
           });
         }
@@ -78,10 +97,22 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
 
   // Deduplicate by title
   const seen = new Set<string>();
-  return articles.filter((a) => {
+  const uniqueArticles = articles.filter((a) => {
     const key = a.title.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   }).slice(0, 10);
+
+  // Concurrently fetch real og:image from the article page for Tribune stories
+  await Promise.allSettled(
+    uniqueArticles.map(async (art) => {
+      if (!art.imageUrl || art.imageUrl.includes('unsplash.com')) {
+        const og = await extractOgImage(art.sourceUrl, 3500);
+        if (og) art.imageUrl = og;
+      }
+    })
+  );
+
+  return uniqueArticles;
 }

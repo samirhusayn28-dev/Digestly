@@ -18,7 +18,9 @@ export interface RelatedSource {
 export interface ProcessedArticle {
   id: string;
   title: string;
-  summary: string[]; // 3-line summary
+  summary: string[]; // Key Points (3-4 concise bullet points)
+  paragraphSummary?: string; // 4-6 sentences full condensed news paragraph
+  highlightPhrases?: string[]; // 3-5 key phrases to highlight in yellow
   sourceName: string;
   sourceUrl: string;
   category: string;

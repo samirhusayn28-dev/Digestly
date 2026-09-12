@@ -18,6 +18,13 @@ import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+} from 'react-native-reanimated';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
@@ -43,7 +50,16 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedTitle, setTranslatedTitle] = useState(article.title);
   const [translatedSummary, setTranslatedSummary] = useState(article.summary);
+  const [translatedParagraph, setTranslatedParagraph] = useState(
+    article.paragraphSummary || (Array.isArray(article.summary) ? article.summary.join(' ') : article.title)
+  );
   const [imageError, setImageError] = useState(false);
+
+  // Micro-interaction: spring bounce on bookmark
+  const bookmarkScale = useSharedValue(1);
+  const animatedBookmarkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bookmarkScale.value }],
+  }));
 
   const isSaved = bookmarkedIds.includes(article.id);
   const isTablet = width >= 768;
@@ -59,6 +75,9 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           if (isMounted) {
             setTranslatedTitle(data.title);
             setTranslatedSummary(data.summary);
+            if (data.paragraphSummary) {
+              setTranslatedParagraph(data.paragraphSummary);
+            }
           }
         })
         .finally(() => {
@@ -67,6 +86,9 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     } else {
       setTranslatedTitle(article.title);
       setTranslatedSummary(article.summary);
+      setTranslatedParagraph(
+        article.paragraphSummary || (Array.isArray(article.summary) ? article.summary.join(' ') : article.title)
+      );
       setIsTranslating(false);
     }
     return () => {
@@ -93,6 +115,10 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleToggleBookmark = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    bookmarkScale.value = withSequence(
+      withTiming(1.35, { duration: 100 }),
+      withSpring(1, { damping: 10, stiffness: 350 })
+    );
     toggleBookmark(article.id);
   };
 
@@ -101,7 +127,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       await Share.share({
         title: article.title,
-        message: `${article.title}\n\nRead the summary on Digestly:\n${article.sourceUrl}`,
+        message: `${article.title}\n\nRead the complete digest on Digestly:\n${article.sourceUrl}`,
         url: article.sourceUrl,
       });
     } catch (e) {
@@ -131,7 +157,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         return 16.5;
       case 'md':
       default:
-        return 14.5;
+        return 15;
     }
   };
 
@@ -140,54 +166,154 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       case 'sm':
         return 21;
       case 'lg':
-        return 26;
+        return 27;
       case 'md':
       default:
-        return 23;
+        return 24;
     }
   };
 
   const catStyle = categoryColors[article.category] || categoryColors['Top Stories'] || {
     bg: colors.surfaceSubtle,
-    text: colors.accent,
+    text: colors.textPrimary,
     darkBg: '#1E293B',
-    darkText: colors.accent,
-    accentColor: colors.accent,
+    darkText: colors.textPrimary,
+  };
+
+  // Helper to render yellow marker highlighter text
+  const renderHighlightedText = (
+    text: string,
+    highlights: string[] | undefined,
+    textColor: string,
+    fSize: number,
+    lHeight: number,
+    isUrduText: boolean
+  ) => {
+    if (!highlights || highlights.length === 0) {
+      return (
+        <Text
+          style={{
+            color: textColor,
+            fontSize: fSize,
+            lineHeight: lHeight,
+            textAlign: isUrduText ? 'right' : 'left',
+            writingDirection: isUrduText ? 'rtl' : 'ltr',
+          }}
+        >
+          {text}
+        </Text>
+      );
+    }
+
+    const validHighlights = highlights
+      .filter((h) => h && typeof h === 'string' && h.trim().length > 1)
+      .map((h) => h.trim());
+
+    if (validHighlights.length === 0) {
+      return (
+        <Text
+          style={{
+            color: textColor,
+            fontSize: fSize,
+            lineHeight: lHeight,
+            textAlign: isUrduText ? 'right' : 'left',
+            writingDirection: isUrduText ? 'rtl' : 'ltr',
+          }}
+        >
+          {text}
+        </Text>
+      );
+    }
+
+    const escaped = validHighlights.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+    const parts = text.split(regex);
+
+    return (
+      <Text
+        style={{
+          color: textColor,
+          fontSize: fSize,
+          lineHeight: lHeight,
+          textAlign: isUrduText ? 'right' : 'left',
+          writingDirection: isUrduText ? 'rtl' : 'ltr',
+        }}
+      >
+        {parts.map((part, index) => {
+          const isMatch = validHighlights.some((h) => h.toLowerCase() === part.toLowerCase());
+          if (isMatch) {
+            return (
+              <Text
+                key={index}
+                style={{
+                  backgroundColor: isDark ? 'rgba(234, 179, 8, 0.35)' : '#FEF08A',
+                  color: isDark ? '#FEF08A' : '#713F12',
+                  fontWeight: '700',
+                }}
+              >
+                {part}
+              </Text>
+            );
+          }
+          return <Text key={index}>{part}</Text>;
+        })}
+      </Text>
+    );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <StatusBar barStyle={colors.statusBarStyle} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Reading Progress Indicator Bar */}
-      <View style={[styles.progressBarTrack, { backgroundColor: colors.borderLight }]}>
+      {/* Progress Bar Header Indicator */}
+      <View
+        style={[
+          styles.progressBarTrack,
+          {
+            top: insets.top,
+            backgroundColor: colors.borderLight,
+          },
+        ]}
+      >
         <View
           style={[
             styles.progressBarFill,
-            { backgroundColor: colors.accent, width: `${scrollProgress * 100}%` },
+            {
+              width: `${scrollProgress * 100}%`,
+              backgroundColor: colors.accent,
+            },
           ]}
         />
       </View>
 
-      {/* Navigation Top Bar */}
-      <View style={[styles.navBar, { borderBottomColor: colors.borderLight }]}>
+      {/* Sticky Editorial Top Bar */}
+      <View
+        style={[
+          styles.navBar,
+          {
+            paddingTop: insets.top + 6,
+            backgroundColor: colors.background,
+            borderBottomColor: colors.borderLight,
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+          style={[styles.backBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
         >
-          <Ionicons name="arrow-back" size={19} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        <View style={styles.navRight}>
-          {/* Language Urdu/English switch button */}
+        <View style={styles.navActions}>
+          {/* Language Urdu / English Toggle */}
           <TouchableOpacity
             onPress={handleToggleLanguage}
             style={[
-              styles.langToggleBtn,
+              styles.navBtn,
               {
                 backgroundColor: isUrdu ? colors.accent : colors.surfaceSubtle,
-                borderColor: isUrdu ? colors.accent : colors.borderLight,
+                borderColor: colors.borderLight,
               },
             ]}
           >
@@ -196,10 +322,11 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             ) : (
               <Text
                 style={[
-                  typography.badge,
+                  typography.caption,
                   {
                     color: isUrdu ? (isDark ? '#000000' : '#FFFFFF') : colors.textPrimary,
                     fontSize: 10.5,
+                    fontWeight: '700',
                   },
                 ]}
               >
@@ -218,6 +345,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
           </TouchableOpacity>
 
+          {/* Share */}
           <TouchableOpacity
             onPress={handleShare}
             style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
@@ -225,15 +353,18 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Ionicons name="share-outline" size={18} color={colors.textPrimary} />
           </TouchableOpacity>
 
+          {/* Animated Bookmark Micro-interaction */}
           <TouchableOpacity
             onPress={handleToggleBookmark}
             style={[styles.navBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
           >
-            <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={18}
-              color={isSaved ? colors.accent : colors.textPrimary}
-            />
+            <Animated.View style={animatedBookmarkStyle}>
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={18}
+                color={isSaved ? colors.accent : colors.textPrimary}
+              />
+            </Animated.View>
           </TouchableOpacity>
         </View>
       </View>
@@ -252,7 +383,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
-        {/* Hero Image if available */}
+        {/* Actual Article Image */}
         {!imageError && article.imageUrl ? (
           <View style={styles.heroContainer}>
             <Image
@@ -322,25 +453,53 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {translatedTitle}
         </Text>
 
-        {/* 3-Line Summary Card */}
+        {/* SECTION 1: Substantial Highlighted Paragraph (Editorial Prose Summary) */}
         <View
           style={[
-            styles.aiSummaryBox,
+            styles.editorialBox,
             { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight },
           ]}
         >
-          <View style={styles.aiBadgeRow}>
+          <View style={styles.editorialHeaderRow}>
             <View style={[styles.sparkleBox, { backgroundColor: colors.surface }]}>
               <Ionicons name="sparkles" size={14} color={colors.accent} />
             </View>
             <View style={{ flex: 1, marginLeft: 9 }}>
-              <Text style={[typography.badge, { color: colors.accent, fontSize: 10.5 }]}>
-                3-Line Digest
+              <Text style={[typography.badge, { color: colors.accent, fontSize: 11 }]}>
+                {isUrdu ? 'مکمل اداریاتی خلاصہ' : 'The Editorial Brief'}
               </Text>
               <Text style={[typography.caption, { color: colors.textTertiary, marginTop: 1 }]}>
-                Distilled from Pakistani newsroom coverage
+                {isUrdu
+                  ? 'نمایاں حقائق اور نام زرد مارکر سے واضح کیے گئے ہیں'
+                  : 'Key facts, entities, and numbers highlighted for rapid skim-reading'}
               </Text>
             </View>
+          </View>
+
+          <View style={styles.paragraphContainer}>
+            {renderHighlightedText(
+              translatedParagraph,
+              article.highlightPhrases,
+              colors.textPrimary,
+              getBodyFontSize(),
+              getBodyLineHeight(),
+              isUrdu
+            )}
+          </View>
+        </View>
+
+        {/* SECTION 2: Key Points / Executive Takeaways */}
+        <View
+          style={[
+            styles.keyPointsBox,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.keyPointsHeader}>
+            <Ionicons name="list-outline" size={15} color={colors.textSecondary} />
+            <Text style={[typography.h4, { color: colors.textPrimary, marginLeft: 6 }]}>
+              {isUrdu ? 'اہم نکات' : 'Key Takeaways'}
+            </Text>
           </View>
 
           {(translatedSummary || []).map((point, index) => (
@@ -355,9 +514,9 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 style={[
                   styles.bulletNumberCircle,
                   {
-                    backgroundColor: colors.surface,
-                    marginRight: isUrdu ? 0 : 9,
-                    marginLeft: isUrdu ? 9 : 0,
+                    backgroundColor: colors.surfaceSubtle,
+                    marginRight: isUrdu ? 0 : 10,
+                    marginLeft: isUrdu ? 10 : 0,
                   },
                 ]}
               >
@@ -370,9 +529,9 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   typography.bodyMedium,
                   styles.bulletText,
                   {
-                    color: colors.textPrimary,
-                    fontSize: getBodyFontSize(),
-                    lineHeight: getBodyLineHeight(),
+                    color: colors.textSecondary,
+                    fontSize: getBodyFontSize() - 1,
+                    lineHeight: getBodyLineHeight() - 2,
                     textAlign: isUrdu ? 'right' : 'left',
                     writingDirection: isUrdu ? 'rtl' : 'ltr',
                   },
@@ -397,7 +556,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style={{ marginRight: 8 }}
           />
           <Text style={[typography.button, { color: isDark ? '#000000' : '#FFFFFF' }]}>
-            Read full article on {article.sourceName}
+            Read full coverage on {article.sourceName}
           </Text>
           <Ionicons
             name="open-outline"
@@ -469,8 +628,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   progressBarTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     height: 2.5,
-    width: '100%',
+    zIndex: 100,
   },
   progressBarFill: {
     height: '100%',
@@ -479,43 +641,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
     borderBottomWidth: 1,
+    zIndex: 90,
   },
-  navBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
-  langToggleBtn: {
-    paddingHorizontal: 8,
-    height: 36,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    minWidth: 38,
-  },
-  fontToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  navRight: {
+  navActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  navBtn: {
+    height: 38,
+    minWidth: 38,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  fontToggleText: {
+    fontWeight: '700',
+    fontSize: 12,
+  },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   heroContainer: {
     width: '100%',
-    height: 200,
+    height: 220,
     borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 14,
@@ -549,23 +712,37 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontSize: 20,
   },
-  aiSummaryBox: {
+  editorialBox: {
     borderRadius: 14,
-    padding: 14,
+    padding: 16,
     borderWidth: 1,
-    marginBottom: 18,
+    marginBottom: 16,
   },
-  aiBadgeRow: {
+  editorialHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
+  },
+  paragraphContainer: {
+    marginTop: 2,
   },
   sparkleBox: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  keyPointsBox: {
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 18,
+  },
+  keyPointsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   bulletRow: {
     flexDirection: 'row',

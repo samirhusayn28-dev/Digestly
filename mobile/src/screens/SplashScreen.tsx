@@ -34,7 +34,10 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const logoScale = useSharedValue(0.8);
   const logoOpacity = useSharedValue(0);
   const textOpacity = useSharedValue(0);
+  const textFillProgress = useSharedValue(0);
   const footerOpacity = useSharedValue(0);
+
+  const neutralColor = isDark ? '#334155' : '#CBD5E1';
 
   useEffect(() => {
     // If returning user who has completed onboarding/guest mode, route to MainTabs immediately
@@ -44,10 +47,14 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     // Fresh install animations
-    logoOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) });
+    logoOpacity.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.ease) });
     logoScale.value = withSpring(1, { damping: 14, stiffness: 120 });
-    textOpacity.value = withDelay(250, withTiming(1, { duration: 500 }));
-    footerOpacity.value = withDelay(500, withTiming(1, { duration: 400 }));
+    textOpacity.value = withDelay(150, withTiming(1, { duration: 400 }));
+    textFillProgress.value = withDelay(
+      350,
+      withTiming(1, { duration: 950, easing: Easing.bezier(0.25, 0.1, 0.25, 1) })
+    );
+    footerOpacity.value = withDelay(600, withTiming(1, { duration: 400 }));
 
     let isNavigated = false;
 
@@ -88,7 +95,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         navigation.replace('MainTabs');
       }
-    }, 1500);
+    }, 1600);
 
     return () => {
       unsubscribe();
@@ -103,6 +110,10 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
   const animatedTextStyle = useAnimatedStyle(() => ({
     opacity: textOpacity.value,
+  }));
+
+  const animatedTextFillStyle = useAnimatedStyle(() => ({
+    width: `${textFillProgress.value * 100}%`,
   }));
 
   const animatedFooterStyle = useAnimatedStyle(() => ({
@@ -128,14 +139,38 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           <DigestlyLogo size="xl" />
         </Animated.View>
 
-        {/* Clean Editorial Title & Modern News Tagline */}
+        {/* Clean Editorial Title with Left-to-Right Color Sweep */}
         <Animated.View style={[styles.textBlock, animatedTextStyle]}>
-          <Text style={[typography.display, styles.title, { color: colors.textPrimary }]}>
-            Digestly
-          </Text>
+          <View style={styles.wordmarkStack}>
+            {/* Base neutral unfilled/outline layer */}
+            <Text
+              style={[
+                typography.display,
+                styles.title,
+                { color: neutralColor, width: 220 },
+              ]}
+              numberOfLines={1}
+            >
+              Digestly
+            </Text>
+
+            {/* Overlaid progressive color fill sweep */}
+            <Animated.View style={[styles.fillMask, animatedTextFillStyle]}>
+              <Text
+                style={[
+                  typography.display,
+                  styles.title,
+                  { color: colors.accent, width: 220 },
+                ]}
+                numberOfLines={1}
+              >
+                Digestly
+              </Text>
+            </Animated.View>
+          </View>
 
           <Text style={[typography.body, styles.tagline, { color: colors.textSecondary }]}>
-            Modern News
+            Modern News Briefing
           </Text>
         </Animated.View>
       </View>
@@ -170,8 +205,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: -0.8,
   },
+  wordmarkStack: {
+    position: 'relative',
+    height: 52,
+    width: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fillMask: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
   tagline: {
-    marginTop: 6,
+    marginTop: 8,
     textAlign: 'center',
     letterSpacing: 0.4,
   },

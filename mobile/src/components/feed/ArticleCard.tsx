@@ -5,6 +5,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  withSequence,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,6 +56,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
 
   // Micro-interaction: spring scale on press
   const cardScale = useSharedValue(1);
+  const bookmarkScale = useSharedValue(1);
 
   const handlePressIn = () => {
     cardScale.value = withSpring(0.985, { damping: 15, stiffness: 300 });
@@ -67,9 +70,17 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
     transform: [{ scale: cardScale.value }],
   }));
 
+  const animatedBookmarkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bookmarkScale.value }],
+  }));
+
   const handleToggleBookmark = (e: any) => {
     e.stopPropagation?.();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    bookmarkScale.value = withSequence(
+      withTiming(1.35, { duration: 100 }),
+      withSpring(1, { damping: 10, stiffness: 350 })
+    );
     toggleBookmark(article.id);
   };
 
@@ -152,11 +163,13 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
             onPress={handleToggleBookmark}
             style={styles.bookmarkTouch}
           >
-            <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={isSaved ? colors.accent : colors.textTertiary}
-            />
+            <Animated.View style={animatedBookmarkStyle}>
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={isSaved ? colors.accent : colors.textTertiary}
+              />
+            </Animated.View>
           </TouchableOpacity>
         </View>
 

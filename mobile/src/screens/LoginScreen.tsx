@@ -46,7 +46,11 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   });
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: GOOGLE_CONFIG.webClientId,
+    clientId: Platform.select({
+      ios: GOOGLE_CONFIG.iosClientId,
+      android: GOOGLE_CONFIG.androidClientId,
+      default: GOOGLE_CONFIG.webClientId,
+    }),
     webClientId: GOOGLE_CONFIG.webClientId,
     iosClientId: GOOGLE_CONFIG.iosClientId,
     androidClientId: GOOGLE_CONFIG.androidClientId,
@@ -59,7 +63,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       handleFirebaseAuthWithGoogle(id_token, access_token);
     } else if (response?.type === 'error') {
       setLoading(false);
-      setErrorMessage(response.error?.message || 'Google Sign-In was cancelled or failed.');
+      const err = response.error?.message || '';
+      if (err.includes('WEB') || err.includes('Custom scheme') || err.includes('invalid_request')) {
+        setErrorMessage(
+          'Google Sign-In requires Android Client setup in Google Cloud Console. You can immediately continue as a Guest with all features enabled!'
+        );
+      } else {
+        setErrorMessage(response.error?.message || 'Google Sign-In was cancelled or failed.');
+      }
     } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
       setLoading(false);
     }
@@ -104,15 +115,29 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         await handleFirebaseAuthWithGoogle(id_token, access_token);
       } else if (res?.type === 'error') {
         setLoading(false);
-        setErrorMessage(res.error?.message || 'Google Sign-In failed.');
+        const err = res.error?.message || '';
+        if (err.includes('WEB') || err.includes('Custom scheme') || err.includes('invalid_request')) {
+          setErrorMessage(
+            'Google Sign-In is awaiting Google Cloud Console Android Client setup (com.digestly.app). Please continue as Guest!'
+          );
+        } else {
+          setErrorMessage(res.error?.message || 'Google Sign-In failed.');
+        }
       } else {
         setLoading(false);
       }
     } catch (err: any) {
       setLoading(false);
-      setErrorMessage(
-        err.message || 'Could not launch Google Sign In. You can continue as a Guest.'
-      );
+      const msg = err.message || '';
+      if (msg.includes('WEB') || msg.includes('Custom scheme') || msg.includes('invalid_request')) {
+        setErrorMessage(
+          'Google Sign-In requires Android Client setup in Google Cloud Console. Tap Continue as Guest below to proceed!'
+        );
+      } else {
+        setErrorMessage(
+          err.message || 'Could not launch Google Sign In. You can continue as a Guest.'
+        );
+      }
     }
   };
 

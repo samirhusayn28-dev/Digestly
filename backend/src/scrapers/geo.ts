@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { ScrapedRawArticle } from '../types/index.js';
+import { extractOgImage, getFallbackImageForCategory } from './imageHelper.js';
 
 export async function scrapeGeoNews(): Promise<ScrapedRawArticle[]> {
   const articles: ScrapedRawArticle[] = [];
@@ -14,7 +15,8 @@ export async function scrapeGeoNews(): Promise<ScrapedRawArticle[]> {
       const response = await axios.get(url, {
         timeout: 8000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           Accept: 'application/rss+xml, application/xml, text/xml, */*',
         },
       });
@@ -27,32 +29,68 @@ export async function scrapeGeoNews(): Promise<ScrapedRawArticle[]> {
         const pubDate = $(elem).find('pubDate').text().trim();
         const rawDescription = $(elem).find('description').text().trim();
 
-        // Extract image
+        // Extract image from RSS media/enclosure or <img> inside description HTML
         let imageUrl: string | null = null;
         const enclosure = $(elem).find('enclosure').attr('url');
-        const media = $(elem).find('media\\:content, media\\:thumbnail').attr('url');
+        const media = $(elem).find('media\\:content, media\\:thumbnail, content').attr('url');
+
+        const desc$ = cheerio.load(rawDescription);
+        const descImg = desc$('img').attr('src');
+
         if (enclosure) {
           imageUrl = enclosure;
         } else if (media) {
           imageUrl = media;
+        } else if (descImg && descImg.startsWith('http')) {
+          imageUrl = descImg;
         }
 
-        const desc$ = cheerio.load(rawDescription);
         const bodySnippet = desc$.text().trim();
 
         if (title && link) {
           let category = url.includes('1/3') ? 'Sports' : 'Politics';
           const lower = title.toLowerCase();
 
-          if (lower.includes('cricket') || lower.includes('pcb') || lower.includes('psl') || lower.includes('babar')) {
+          if (
+            lower.includes('cricket') ||
+            lower.includes('pcb') ||
+            lower.includes('psl') ||
+            lower.includes('babar') ||
+            lower.includes('match')
+          ) {
             category = 'Sports';
-          } else if (lower.includes('economy') || lower.includes('rupee') || lower.includes('inflation') || lower.includes('gold') || lower.includes('stock')) {
+          } else if (
+            lower.includes('economy') ||
+            lower.includes('rupee') ||
+            lower.includes('inflation') ||
+            lower.includes('gold') ||
+            lower.includes('stock') ||
+            lower.includes('tax')
+          ) {
             category = 'Business';
-          } else if (lower.includes('tech') || lower.includes('ai') || lower.includes('telecom')) {
+          } else if (
+            lower.includes('tech') ||
+            lower.includes('ai') ||
+            lower.includes('telecom') ||
+            lower.includes('digital')
+          ) {
             category = 'Tech';
-          } else if (lower.includes('drama') || lower.includes('film') || lower.includes('music') || lower.includes('actor')) {
+          } else if (
+            lower.includes('drama') ||
+            lower.includes('film') ||
+            lower.includes('music') ||
+            lower.includes('actor') ||
+            lower.includes('cinema')
+          ) {
             category = 'Entertainment';
-          } else if (lower.includes('world') || lower.includes('gaza') || lower.includes('un') || lower.includes('china')) {
+          } else if (
+            lower.includes('world') ||
+            lower.includes('gaza') ||
+            lower.includes('un') ||
+            lower.includes('china') ||
+            lower.includes('us') ||
+            lower.includes('brics')
+          ) {
             category = 'World';
           }
 
@@ -62,7 +100,7 @@ export async function scrapeGeoNews(): Promise<ScrapedRawArticle[]> {
             sourceName: 'Geo News',
             sourceUrl: link,
             category,
-            imageUrl: imageUrl || 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?auto=format&fit=crop&w=600&q=80',
+            imageUrl: imageUrl || getFallbackImageForCategory(category),
             publishedAt: pubDate || 'Recently',
           });
         }
@@ -74,10 +112,22 @@ export async function scrapeGeoNews(): Promise<ScrapedRawArticle[]> {
 
   // Deduplicate by title
   const seen = new Set<string>();
-  return articles.filter((a) => {
+  const uniqueArticles = articles.filter((a) => {
     const key = a.title.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   }).slice(0, 10);
+
+  // If any images are missing, attempt to extract og:image from the article page
+  await Promise.allSettled(
+    uniqueArticles.map(async (art) => {
+      if (!art.imageUrl || art.imageUrl.includes('unsplash.com')) {
+        const og = await extractOgImage(art.sourceUrl, 3000);
+        if (og) art.imageUrl = og;
+      }
+    })
+  );
+
+  return uniqueArticles;
 }

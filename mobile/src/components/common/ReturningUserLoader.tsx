@@ -86,17 +86,21 @@ export const ReturningUserLoader: React.FC<ReturningUserLoaderProps> = ({
       <View style={styles.content}>
         {/* Underneath neutral text */}
         <View style={styles.textStack}>
-          <Text style={[styles.wordmark, { color: neutralColor }]}>Digestly</Text>
+          <Text style={[styles.wordmark, { color: neutralColor, width: 200 }]} numberOfLines={1}>
+            Digestly
+          </Text>
 
           {/* Overlaid progressively filled text with animated width */}
           <Animated.View style={[styles.fillMask, animatedFillStyle]}>
-            <Text style={[styles.wordmark, { color: accentColor }]}>Digestly</Text>
+            <Text style={[styles.wordmark, { color: accentColor, width: 200 }]} numberOfLines={1}>
+              Digestly
+            </Text>
           </Animated.View>
         </View>
 
         {/* Minimal subtitle */}
         <Text style={[styles.subText, { color: colors.textTertiary }]}>
-          Updating your radar...
+          Updating your briefing...
         </Text>
       </View>
     </Animated.View>
@@ -121,13 +125,16 @@ const styles = StyleSheet.create({
   textStack: {
     position: 'relative',
     height: 48,
+    width: 200,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   wordmark: {
     fontFamily: 'Sora_700Bold',
     fontSize: 34,
     letterSpacing: -1,
     fontWeight: '800',
+    textAlign: 'center',
   },
   fillMask: {
     position: 'absolute',

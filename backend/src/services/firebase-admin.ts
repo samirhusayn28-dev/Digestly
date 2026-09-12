@@ -35,7 +35,6 @@ function initFirebaseAdmin() {
     }
   }
 
-  // Return null so saveArticlesToFirestore uses REST API with project API key
   return null;
 }
 
@@ -92,6 +91,18 @@ async function saveViaRestApi(article: ProcessedArticle) {
     },
   };
 
+  if (article.paragraphSummary) {
+    fields.paragraphSummary = { stringValue: article.paragraphSummary };
+  }
+
+  if (article.highlightPhrases && article.highlightPhrases.length > 0) {
+    fields.highlightPhrases = {
+      arrayValue: {
+        values: article.highlightPhrases.map((h) => ({ stringValue: h })),
+      },
+    };
+  }
+
   if (article.imageUrl) {
     fields.imageUrl = { stringValue: article.imageUrl };
   }
@@ -114,4 +125,65 @@ async function saveViaRestApi(article: ProcessedArticle) {
   }
 
   await axios.patch(url, { fields });
+}
+
+export interface PushTokenUser {
+  uid: string;
+  pushToken: string;
+  categoryPreferences?: string[];
+}
+
+export async function getUsersWithPushTokens(): Promise<PushTokenUser[]> {
+  const firestore = initFirebaseAdmin();
+
+  if (firestore) {
+    try {
+      const snap = await firestore.collection('users').get();
+      const users: PushTokenUser[] = [];
+      snap.forEach((doc) => {
+        const data = doc.data();
+        if (data.pushToken && typeof data.pushToken === 'string') {
+          users.push({
+            uid: doc.id,
+            pushToken: data.pushToken,
+            categoryPreferences: Array.isArray(data.interests) ? data.interests : undefined,
+          });
+        }
+      });
+      return users;
+    } catch (e) {
+      console.warn('Firebase Admin getUsersWithPushTokens failed, falling back to REST:', e);
+    }
+  }
+
+  // REST API fallback
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users?key=${API_KEY}`;
+    const res = await axios.get(url, { timeout: 6000 });
+    const docs = res.data?.documents || [];
+    const users: PushTokenUser[] = [];
+
+    for (const doc of docs) {
+      const fields = doc.fields;
+      if (fields?.pushToken?.stringValue) {
+        const uid = doc.name.split('/').pop() || '';
+        const interests: string[] = [];
+        if (fields.interests?.arrayValue?.values) {
+          fields.interests.arrayValue.values.forEach((v: any) => {
+            if (v.stringValue) interests.push(v.stringValue);
+          });
+        }
+        users.push({
+          uid,
+          pushToken: fields.pushToken.stringValue,
+          categoryPreferences: interests.length > 0 ? interests : undefined,
+        });
+      }
+    }
+
+    return users;
+  } catch (err) {
+    console.warn('Error reading users for push notifications:', err);
+    return [];
+  }
 }
