@@ -42,6 +42,21 @@ const TRENDING_TOPICS = [
   { tag: '#ElectoralReform', reads: '11.4k reads', category: 'Politics' },
 ];
 
+interface SourceFilterItem {
+  id: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+const SOURCE_FILTERS: SourceFilterItem[] = [
+  { id: 'all', label: 'All Sources', icon: 'globe-outline' },
+  { id: 'Dawn', label: 'Dawn', icon: 'newspaper-outline' },
+  { id: 'Tribune', label: 'Tribune', icon: 'newspaper-outline' },
+  { id: 'Geo News', label: 'Geo News', icon: 'tv-outline' },
+  { id: 'BBC World', label: 'BBC World', icon: 'radio-outline' },
+  { id: 'Al Jazeera', label: 'Al Jazeera', icon: 'earth-outline' },
+];
+
 export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -49,6 +64,7 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const [selectedCategory, setSelectedCategory] = useState(initialCat);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSource, setSelectedSource] = useState('all');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,6 +95,18 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const filteredArticles = articles.filter((item) => {
+    if (selectedSource !== 'all') {
+      const src = item.sourceName.toLowerCase();
+      let matches = false;
+      if (selectedSource === 'Dawn') matches = src.includes('dawn');
+      else if (selectedSource === 'Tribune') matches = src.includes('tribune');
+      else if (selectedSource === 'Geo News') matches = src.includes('geo');
+      else if (selectedSource === 'BBC World') matches = src.includes('bbc');
+      else if (selectedSource === 'Al Jazeera') matches = src.includes('jazeera');
+      else matches = src.includes(selectedSource.toLowerCase());
+      if (!matches) return false;
+    }
+
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
     return (
@@ -170,6 +198,48 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
             );
           })}
         </View>
+      </View>
+
+      {/* Source Filter Control Row */}
+      <View style={styles.sourceFilterSection}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sourceFilterScroll}
+        >
+          {SOURCE_FILTERS.map((src) => {
+            const isSelected = selectedSource === src.id;
+            return (
+              <TouchableOpacity
+                key={src.id}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedSource(src.id);
+                }}
+                style={[
+                  styles.sourceChip,
+                  isSelected ? styles.sourceChipActive : styles.sourceChipInactive,
+                ]}
+              >
+                <Ionicons
+                  name={src.icon}
+                  size={12}
+                  color={isSelected ? '#07090E' : '#94A3B8'}
+                  style={{ marginRight: 5 }}
+                />
+                <Text
+                  style={[
+                    styles.sourceChipText,
+                    isSelected ? styles.sourceChipTextActive : styles.sourceChipTextInactive,
+                  ]}
+                >
+                  {src.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Content */}
@@ -416,6 +486,42 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
+  },
+  sourceFilterSection: {
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: '#151B27',
+  },
+  sourceFilterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  sourceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  sourceChipActive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#F8FAFC',
+  },
+  sourceChipInactive: {
+    backgroundColor: '#111622',
+    borderColor: '#1E2638',
+  },
+  sourceChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sourceChipTextActive: {
+    color: '#07090E',
+    fontWeight: '700',
+  },
+  sourceChipTextInactive: {
+    color: '#94A3B8',
   },
   splitHighlightsSection: {
     marginBottom: 20,

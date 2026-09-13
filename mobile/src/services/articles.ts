@@ -277,6 +277,44 @@ export const REALISTIC_SEED_ARTICLES: Article[] = [
     scrapedAt: new Date().toISOString(),
     isBreaking: false,
   },
+  {
+    id: 'bbc-world-climate-summit',
+    title: 'Global Climate Accord Reaches B Adaptation Financing Milestone at Geneva Forum',
+    paragraphSummary:
+      'Delegates from 140 nations agreed to a landmark  billion annual climate resilience financing package during ministerial sessions in Geneva. The fund focuses on vulnerable South Asian and African river basin economies facing intensified monsoon cycles. Multilateral lenders and European development banks pledged direct grants rather than loans to prevent debt distress. Environmental economists called the pact an essential baseline for global loss-and-damage mechanisms.',
+    highlightPhrases: [' billion', 'Geneva Forum', 'South Asian and African river basin', 'direct grants'],
+    summary: [
+      'Geneva talks establish B annual adaptation fund for vulnerable global regions.',
+      'Focus on direct grant disbursements over traditional debt-carrying loans.',
+      'Multilateral development banks commit front-loaded emergency relief funding.',
+    ],
+    sourceName: 'BBC World',
+    sourceUrl: 'https://www.bbc.com/news/world-geneva-climate-summit',
+    category: 'World',
+    imageUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&q=80',
+    publishedAt: '1h ago',
+    scrapedAt: new Date().toISOString(),
+    isBreaking: false,
+  },
+  {
+    id: 'al-jazeera-doha-talks',
+    title: 'High-Level Regional Peace Talks Resume in Doha Amid Intensified Diplomatic Push',
+    paragraphSummary:
+      'Diplomatic delegations from neighboring regional powers convened in Doha for renewed quadrilateral talks aimed at permanent ceasefire enforcement and humanitarian corridor access. Mediators reported encouraging progress on aid delivery schedules and joint border monitoring frameworks. International humanitarian organizations stressed the urgent necessity of uninterrupted fuel and medical logistics across frontline crossings.',
+    highlightPhrases: ['Doha', 'quadrilateral talks', 'humanitarian corridor access', 'joint border monitoring'],
+    summary: [
+      'Quadrilateral mediators report breakthrough on humanitarian logistics framework.',
+      'Agreement reached on monitored fuel and pharmaceutical convoys.',
+      'Next phase of multilateral discussions slated for Thursday in Qatar.',
+    ],
+    sourceName: 'Al Jazeera',
+    sourceUrl: 'https://www.aljazeera.com/news/doha-diplomatic-talks-resumption',
+    category: 'World',
+    imageUrl: 'https://images.unsplash.com/photo-1518458028785-8fbcd101ebb9?auto=format&fit=crop&w=600&q=80',
+    publishedAt: '3h ago',
+    scrapedAt: new Date().toISOString(),
+    isBreaking: false,
+  },
 ];
 
 export interface FetchArticlesParams {

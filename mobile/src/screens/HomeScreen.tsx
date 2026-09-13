@@ -51,6 +51,21 @@ const FEED_CATEGORIES = [
   'Science',
 ];
 
+interface SourceFilterItem {
+  id: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+const SOURCE_FILTERS: SourceFilterItem[] = [
+  { id: 'all', label: 'All Sources', icon: 'globe-outline' },
+  { id: 'Dawn', label: 'Dawn', icon: 'newspaper-outline' },
+  { id: 'Tribune', label: 'Tribune', icon: 'newspaper-outline' },
+  { id: 'Geo News', label: 'Geo News', icon: 'tv-outline' },
+  { id: 'BBC World', label: 'BBC World', icon: 'radio-outline' },
+  { id: 'Al Jazeera', label: 'Al Jazeera', icon: 'earth-outline' },
+];
+
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -63,6 +78,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const flatListRef = useRef<FlatList>(null);
   const [activeFilter, setActiveFilter] = useState('All');
   const [newsSubFilter, setNewsSubFilter] = useState<'all' | 'breaking' | 'analysis'>('all');
+  const [selectedSource, setSelectedSource] = useState<string>('all');
   const [articles, setArticles] = useState<Article[]>([]);
   const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -164,9 +180,22 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     .toUpperCase();
 
-  const heroArticle = articles.length > 0 ? articles[0] : null;
-  const highlightArticles = articles.slice(1, 4);
-  const remainingArticles = articles.slice(4);
+  const sourceFilteredArticles = React.useMemo(() => {
+    if (selectedSource === 'all') return articles;
+    return articles.filter((a) => {
+      const src = a.sourceName.toLowerCase();
+      if (selectedSource === 'Dawn') return src.includes('dawn');
+      if (selectedSource === 'Tribune') return src.includes('tribune');
+      if (selectedSource === 'Geo News') return src.includes('geo');
+      if (selectedSource === 'BBC World') return src.includes('bbc');
+      if (selectedSource === 'Al Jazeera') return src.includes('jazeera');
+      return src.includes(selectedSource.toLowerCase());
+    });
+  }, [articles, selectedSource]);
+
+  const heroArticle = sourceFilteredArticles.length > 0 ? sourceFilteredArticles[0] : null;
+  const highlightArticles = sourceFilteredArticles.slice(1, 4);
+  const remainingArticles = sourceFilteredArticles.slice(4);
 
   const filteredNewsArticles = remainingArticles.filter((art) => {
     if (newsSubFilter === 'breaking') return art.isBreaking;
@@ -174,7 +203,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return true;
   });
 
-  const multiSourceStory = articles.find((a) => a.relatedSources && a.relatedSources.length > 0) || heroArticle;
+  const multiSourceStory =
+    sourceFilteredArticles.find((a) => a.relatedSources && a.relatedSources.length > 0) ||
+    heroArticle;
 
   return (
     <View style={[styles.container, { backgroundColor: '#07090E', paddingTop: insets.top }]}>
@@ -253,6 +284,48 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </ScrollView>
       </View>
 
+      {/* Source Filter Control Row */}
+      <View style={styles.sourceFilterSection}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sourceFilterScroll}
+        >
+          {SOURCE_FILTERS.map((src) => {
+            const isSelected = selectedSource === src.id;
+            return (
+              <TouchableOpacity
+                key={src.id}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedSource(src.id);
+                }}
+                style={[
+                  styles.sourceChip,
+                  isSelected ? styles.sourceChipActive : styles.sourceChipInactive,
+                ]}
+              >
+                <Ionicons
+                  name={src.icon}
+                  size={12}
+                  color={isSelected ? '#07090E' : '#94A3B8'}
+                  style={{ marginRight: 5 }}
+                />
+                <Text
+                  style={[
+                    styles.sourceChipText,
+                    isSelected ? styles.sourceChipTextActive : styles.sourceChipTextInactive,
+                  ]}
+                >
+                  {src.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {/* Custom Animated Refresh Banner */}
       <CustomRefreshHeader isRefreshing={refreshing} />
 
@@ -283,7 +356,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         </View>
-      ) : articles.length === 0 ? (
+      ) : sourceFilteredArticles.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={[styles.emptyCircle, { backgroundColor: colors.surfaceSubtle }]}>
             <Ionicons name="newspaper-outline" size={36} color={colors.textTertiary} />
@@ -536,6 +609,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#F8FAFC',
+  },
+  sourceFilterSection: {
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: '#151B27',
+  },
+  sourceFilterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  sourceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  sourceChipActive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#F8FAFC',
+  },
+  sourceChipInactive: {
+    backgroundColor: '#111622',
+    borderColor: '#1E2638',
+  },
+  sourceChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sourceChipTextActive: {
+    color: '#07090E',
+    fontWeight: '700',
+  },
+  sourceChipTextInactive: {
+    color: '#94A3B8',
   },
   filterSection: {
     paddingVertical: 10,
