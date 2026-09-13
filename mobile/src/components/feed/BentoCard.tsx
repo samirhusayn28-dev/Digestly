@@ -144,45 +144,40 @@ export const BentoCard: React.FC<BentoCardProps> = ({
             {/* Floating Top Badges */}
             <View style={styles.heroTopRow}>
               <View style={styles.heroBadgeGroup}>
-                <View
-                  style={[
-                    styles.heroCategoryBadge,
-                    { backgroundColor: isDark ? catStyle.darkBg : '#FFFFFF' },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.badge,
-                      { color: isDark ? catStyle.darkText : catStyle.accentColor, fontSize: 10 },
-                    ]}
-                  >
-                    {article.category}
-                  </Text>
+                <View style={styles.liveCoveragePill}>
+                  <View style={styles.liveRedDot} />
+                  <Text style={styles.liveCoverageText}>LIVE COVERAGE</Text>
                 </View>
 
-                {article.isBreaking && (
-                  <View style={[styles.breakingBadge, { backgroundColor: '#DC2626' }]}>
-                    <Ionicons name="flash" size={10} color="#FFFFFF" style={{ marginRight: 2 }} />
-                    <Text style={[typography.badge, { color: '#FFFFFF', fontSize: 9 }]}>
-                      BREAKING
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.locationPill}>
+                  <Ionicons name="location-sharp" size={11} color="#CBD5E1" style={{ marginRight: 3 }} />
+                  <Text style={styles.locationText}>Karachi</Text>
+                </View>
               </View>
 
-              <TouchableOpacity
-                onPress={handleBookmark}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                style={styles.heroBookmarkBtn}
-              >
-                <Animated.View style={animatedBookmarkStyle}>
-                  <Ionicons
-                    name={isSaved ? 'bookmark' : 'bookmark-outline'}
-                    size={18}
-                    color="#FFFFFF"
-                  />
-                </Animated.View>
-              </TouchableOpacity>
+              <View style={styles.heroActionBtnsGroup}>
+                <TouchableOpacity
+                  onPress={onPress}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.heroCircleActionBtn}
+                >
+                  <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleBookmark}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.heroCircleActionBtn}
+                >
+                  <Animated.View style={animatedBookmarkStyle}>
+                    <Ionicons
+                      name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                      size={15}
+                      color="#FFFFFF"
+                    />
+                  </Animated.View>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Floating Source Tag */}
@@ -206,45 +201,18 @@ export const BentoCard: React.FC<BentoCardProps> = ({
               {translatedTitle}
             </Text>
 
-            {/* 3-Line Summary Callout */}
-            <View
+            {/* Paragraph / editorial summary */}
+            <Text
+              numberOfLines={3}
               style={[
-                styles.summaryBox,
-                {
-                  backgroundColor: colors.surfaceSubtle,
-                  borderLeftColor: colors.accentBlue,
-                },
+                typography.body,
+                styles.heroParagraph,
+                { color: colors.textSecondary },
+                newsLanguage === 'ur' && { textAlign: 'right' },
               ]}
             >
-              <View style={styles.summaryHeader}>
-                <Ionicons name="sparkles" size={11} color={colors.accentBlue} />
-                <Text
-                  style={[
-                    typography.caption,
-                    { color: colors.accentBlue, fontWeight: '700', marginLeft: 4 },
-                  ]}
-                >
-                  AI SUMMARY
-                </Text>
-              </View>
-
-              {translatedSummary.slice(0, 2).map((line, idx) => (
-                <View key={idx} style={styles.summaryBulletRow}>
-                  <Text style={[styles.bulletDot, { color: colors.accentBlue }]}>▪</Text>
-                  <Text
-                    numberOfLines={2}
-                    style={[
-                      typography.bodySmall,
-                      styles.bulletText,
-                      { color: colors.textSecondary },
-                      newsLanguage === 'ur' && { textAlign: 'right' },
-                    ]}
-                  >
-                    {line}
-                  </Text>
-                </View>
-              ))}
-            </View>
+              {article.paragraphSummary || translatedSummary.join(' ')}
+            </Text>
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -379,30 +347,52 @@ const styles = StyleSheet.create({
   heroBadgeGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  heroCategoryBadge: {
+  liveCoveragePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  breakingBadge: {
+  liveRedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+    marginRight: 5,
+  },
+  liveCoverageText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
     borderRadius: 6,
-    marginLeft: 6,
   },
-  heroBookmarkBtn: {
+  locationText: {
+    fontSize: 10,
+    color: '#E2E8F0',
+    fontWeight: '500',
+  },
+  heroActionBtnsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroCircleActionBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -437,32 +427,11 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     letterSpacing: -0.3,
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  summaryBox: {
-    borderRadius: 8,
-    borderLeftWidth: 2.5,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  summaryBulletRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 2,
-  },
-  bulletDot: {
-    fontSize: 10,
-    marginRight: 6,
-    lineHeight: 16,
-  },
-  bulletText: {
-    flex: 1,
-    lineHeight: 17,
+  heroParagraph: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   secCard: {
     borderRadius: 12,

@@ -9,6 +9,10 @@ export async function scrapeDawnNews(): Promise<ScrapedRawArticle[]> {
   const feedUrls = [
     'https://www.dawn.com/feeds/home/',
     'https://www.dawn.com/feeds/pakistan/',
+    'https://www.dawn.com/feeds/business/',
+    'https://www.dawn.com/feeds/tech/',
+    'https://www.dawn.com/feeds/sport/',
+    'https://www.dawn.com/feeds/world/',
     'https://www.dawn.com/feeds/latest-news/',
   ];
 
@@ -45,51 +49,29 @@ export async function scrapeDawnNews(): Promise<ScrapedRawArticle[]> {
           const desc$ = cheerio.load(rawDescription);
           const bodySnippet = desc$.text().trim();
 
-          // Infer category from title or item categories
+          // Infer category from URL or title
           let category = 'Politics';
           const lower = title.toLowerCase();
-          if (
-            lower.includes('economy') ||
-            lower.includes('inflation') ||
-            lower.includes('sbp') ||
-            lower.includes('market') ||
-            lower.includes('rupee') ||
-            lower.includes('imf')
-          ) {
-            category = 'Business';
-          } else if (
-            lower.includes('tech') ||
-            lower.includes('digital') ||
-            lower.includes('ai') ||
-            lower.includes('software') ||
-            lower.includes('telecom')
-          ) {
-            category = 'Tech';
-          } else if (
-            lower.includes('cricket') ||
-            lower.includes('pcb') ||
-            lower.includes('trophy') ||
-            lower.includes('match') ||
-            lower.includes('psl')
-          ) {
+          const lowerUrl = feedUrl.toLowerCase();
+
+          if (lowerUrl.includes('business') || lower.includes('economy') || lower.includes('inflation') || lower.includes('sbp') || lower.includes('market') || lower.includes('rupee') || lower.includes('imf') || lower.includes('psx')) {
+            category = 'Business & Economy';
+          } else if (lowerUrl.includes('tech') || lower.includes('tech') || lower.includes('digital') || lower.includes('ai') || lower.includes('software') || lower.includes('telecom')) {
+            category = 'Technology & AI';
+          } else if (lowerUrl.includes('sport') || lower.includes('cricket') || lower.includes('pcb') || lower.includes('trophy') || lower.includes('match') || lower.includes('psl')) {
             category = 'Sports';
-          } else if (
-            lower.includes('film') ||
-            lower.includes('culture') ||
-            lower.includes('actor') ||
-            lower.includes('art') ||
-            lower.includes('music')
-          ) {
-            category = 'Entertainment';
-          } else if (
-            lower.includes('un') ||
-            lower.includes('us') ||
-            lower.includes('china') ||
-            lower.includes('india') ||
-            lower.includes('gaza') ||
-            lower.includes('brics')
-          ) {
+          } else if (lowerUrl.includes('world') || lower.includes('un') || lower.includes('us') || lower.includes('china') || lower.includes('india') || lower.includes('gaza') || lower.includes('brics')) {
             category = 'World';
+          } else if (lower.includes('climate') || lower.includes('smog') || lower.includes('flood') || lower.includes('environment') || lower.includes('pollution')) {
+            category = 'Environment & Climate';
+          } else if (lower.includes('health') || lower.includes('dengue') || lower.includes('polio') || lower.includes('hospital') || lower.includes('doctor')) {
+            category = 'Health';
+          } else if (lower.includes('film') || lower.includes('culture') || lower.includes('actor') || lower.includes('art') || lower.includes('music') || lower.includes('cinema')) {
+            category = 'Entertainment';
+          } else if (lower.includes('school') || lower.includes('university') || lower.includes('student') || lower.includes('education') || lower.includes('exam')) {
+            category = 'Education';
+          } else if (lower.includes('science') || lower.includes('space') || lower.includes('research') || lower.includes('nasa')) {
+            category = 'Science';
           }
 
           articles.push({

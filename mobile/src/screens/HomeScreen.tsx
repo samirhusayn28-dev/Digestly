@@ -29,7 +29,7 @@ import { ArticleCard } from '../components/feed/ArticleCard';
 import { BentoCard } from '../components/feed/BentoCard';
 import { DigestlyLogo } from '../components/common/DigestlyLogo';
 import { ReturningUserLoader } from '../components/common/ReturningUserLoader';
-import { ArticleCardSkeleton } from '../components/common/SkeletonLoader';
+import { FeedSkeleton, ArticleCardSkeleton } from '../components/common/SkeletonLoader';
 import { CustomRefreshHeader } from '../components/feed/CustomRefreshHeader';
 
 type Props = CompositeScreenProps<
@@ -38,25 +38,17 @@ type Props = CompositeScreenProps<
 >;
 
 const FEED_CATEGORIES = [
-  'For You',
-  'Top Stories',
+  'All',
   'Politics',
-  'Business',
-  'Finance',
-  'Tech',
-  'AI',
-  'Science',
-  'Health',
+  'Business & Economy',
+  'Technology & AI',
   'Sports',
   'World',
+  'Health',
   'Entertainment',
-  'Culture',
-  'Lifestyle',
   'Education',
-  'Environment',
-  'Travel',
-  'Food',
-  'Automotive',
+  'Environment & Climate',
+  'Science',
 ];
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -69,7 +61,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const setNewsLanguage = useAppStore((state) => state.setNewsLanguage);
 
   const flatListRef = useRef<FlatList>(null);
-  const [activeFilter, setActiveFilter] = useState('For You');
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [newsSubFilter, setNewsSubFilter] = useState<'all' | 'breaking' | 'analysis'>('all');
   const [articles, setArticles] = useState<Article[]>([]);
   const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -94,22 +87,21 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }
         setError(null);
 
-        // Ensure database has seed articles
         await seedFirestoreArticlesIfEmpty();
 
-        const categoryParam = activeFilter === 'For You' ? 'All' : activeFilter;
-        const result = await fetchArticlesFromFirestore({
+        const categoryParam = activeFilter === 'All' ? 'All' : activeFilter;
+        const res = await fetchArticlesFromFirestore({
           category: categoryParam,
-          pageSize: 8,
+          pageSize: 12,
           userInterests: selectedInterests,
         });
 
-        setArticles(result.articles);
-        setLastDoc(result.lastDoc);
-        setHasMore(result.hasMore);
+        setArticles(res.articles);
+        setLastDoc(res.lastDoc);
+        setHasMore(res.hasMore);
       } catch (err: any) {
-        console.error('Failed to load articles:', err);
-        setError('Unable to load latest dispatches. Please check connection.');
+        console.warn('Error loading feed articles:', err);
+        setError('Could not connect to news feed.');
       } finally {
         setLoadingInitial(false);
         setRefreshing(false);
@@ -119,36 +111,30 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   useEffect(() => {
-    loadArticles();
+    loadArticles(false);
   }, [loadArticles]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await loadArticles(true);
+    loadArticles(true);
   };
 
   const handleLoadMore = async () => {
     if (loadingMore || !hasMore || !lastDoc) return;
-
     try {
       setLoadingMore(true);
-      const categoryParam = activeFilter === 'For You' ? 'All' : activeFilter;
-      const result = await fetchArticlesFromFirestore({
-        category: categoryParam,
-        pageSize: 4,
+      const res = await fetchArticlesFromFirestore({
+        category: activeFilter === 'All' ? 'All' : activeFilter,
+        pageSize: 6,
         lastDoc,
         userInterests: selectedInterests,
       });
 
-      if (result.articles.length > 0) {
-        setArticles((prev) => [...prev, ...result.articles]);
-        setLastDoc(result.lastDoc);
-        setHasMore(result.hasMore);
-      } else {
-        setHasMore(false);
-      }
-    } catch (err) {
-      console.warn('Error loading more articles:', err);
+      setArticles((prev) => [...prev, ...res.articles]);
+      setLastDoc(res.lastDoc);
+      setHasMore(res.hasMore);
+    } catch {
+      // Ignore load more error
     } finally {
       setLoadingMore(false);
     }
@@ -160,167 +146,106 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleToggleLanguage = () => {
-    Haptics.selectionAsync();
-    setNewsLanguage(newsLanguage === 'en' ? 'ur' : 'en');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setNewsLanguage(isUrdu ? 'en' : 'ur');
   };
 
   const handleScrollToTop = () => {
-    Haptics.selectionAsync();
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
-  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const scrollY = event.nativeEvent.contentOffset.y;
-    if (scrollY > 350 && !showScrollTop) {
-      setShowScrollTop(true);
-    } else if (scrollY <= 350 && showScrollTop) {
-      setShowScrollTop(false);
-    }
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetY = e.nativeEvent.contentOffset.y;
+    setShowScrollTop(offsetY > 400);
   };
 
-  const currentDate = new Date().toLocaleDateString('en-PK', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
+  const now = new Date();
+  const dateFormatted = now
+    .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    .toUpperCase();
+
+  const heroArticle = articles.length > 0 ? articles[0] : null;
+  const highlightArticles = articles.slice(1, 4);
+  const remainingArticles = articles.slice(4);
+
+  const filteredNewsArticles = remainingArticles.filter((art) => {
+    if (newsSubFilter === 'breaking') return art.isBreaking;
+    if (newsSubFilter === 'analysis') return (art.summary?.length || 0) >= 3;
+    return true;
   });
 
-  const breakingArticle = articles.find((a) => a.isBreaking);
-
-  // Bento layout separation for For You / Top Stories
-  const showBento =
-    (activeFilter === 'For You' || activeFilter === 'Top Stories') &&
-    articles.length >= 3;
-
-  const heroArticle = showBento ? articles[0] : null;
-  const secondaryArticles = showBento ? [articles[1], articles[2]] : [];
-  const feedArticles = showBento ? articles.slice(3) : articles;
+  const multiSourceStory = articles.find((a) => a.relatedSources && a.relatedSources.length > 0) || heroArticle;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <StatusBar barStyle={colors.statusBarStyle} />
+    <View style={[styles.container, { backgroundColor: '#07090E', paddingTop: insets.top }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Editorial Header */}
-      <View style={[styles.topBar, { borderBottomColor: colors.borderLight }]}>
+      {/* Editorial Header matching Feed.png */}
+      <View style={styles.topBar}>
         <View style={styles.headerLeft}>
-          <Text style={[typography.caption, { color: colors.textTertiary, textTransform: 'uppercase', fontSize: 10.5 }]}>
-            {currentDate} • Pakistan Radar
-          </Text>
+          <View style={styles.dateRow}>
+            <Text style={styles.dateText}>{dateFormatted}</Text>
+            <View style={styles.radarBadge}>
+              <Text style={styles.radarBadgeText}>RADAR</Text>
+            </View>
+          </View>
+
           <View style={styles.brandRow}>
             <DigestlyLogo size="sm" />
-            <Text style={[typography.h1, { color: colors.textPrimary, letterSpacing: -0.5, marginLeft: 8 }]}>
-              Digestly
-            </Text>
-
-            {/* Quick Language Toggle Pill */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleToggleLanguage}
-              style={[
-                styles.languagePill,
-                {
-                  backgroundColor: isUrdu ? colors.accent : colors.surfaceSubtle,
-                  borderColor: isUrdu ? colors.accent : colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  typography.badge,
-                  {
-                    color: isUrdu ? (isDark ? '#000000' : '#FFFFFF') : colors.textPrimary,
-                    fontSize: 10.5,
-                  },
-                ]}
-              >
-                {isUrdu ? 'اردو' : 'EN'}
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.brandTitleText}>Digestly</Text>
           </View>
         </View>
 
         <View style={styles.topActions}>
           <TouchableOpacity
-            onPress={handleRefresh}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={[styles.actionIconBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}
+            onPress={() => navigation.navigate('Discover')}
+            style={styles.actionIconBtn}
           >
-            <Ionicons name="sync-outline" size={18} color={colors.textSecondary} />
+            <Ionicons name="search-outline" size={18} color="#94A3B8" />
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => navigation.navigate('Discover')}
-            style={[
-              styles.actionIconBtn,
-              { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight, marginLeft: 8 },
-            ]}
+            onPress={() => navigation.navigate('Settings')}
+            style={styles.actionIconBtn}
           >
-            <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+            <Ionicons name="notifications-outline" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleToggleLanguage}
+            style={styles.langBadgePill}
+          >
+            <Text style={styles.langBadgeText}>{isUrdu ? 'اردو' : 'EN'}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Breaking News Ticker */}
-      {breakingArticle && (
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate('ArticleDetail', { article: breakingArticle })}
-          style={[styles.breakingTicker, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}
-        >
-          <View style={styles.tickerBadge}>
-            <Ionicons name="flash" size={12} color="#DC2626" />
-            <Text style={[typography.badge, { color: '#DC2626', marginLeft: 3, fontSize: 9.5 }]}>
-              BREAKING
-            </Text>
-          </View>
-          <Text
-            numberOfLines={1}
-            style={[typography.bodySmall, { color: '#991B1B', flex: 1, fontWeight: '600' }]}
-          >
-            {breakingArticle.title}
-          </Text>
-          <Ionicons name="chevron-forward" size={13} color="#DC2626" />
-        </TouchableOpacity>
-      )}
-
-      {/* 18-Category Horizontal Filter Bar */}
+      {/* Category Pills Row */}
       <View style={styles.filterSection}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScroll}
         >
-          {FEED_CATEGORIES.map((f) => {
-            const isSelected = activeFilter === f;
+          {FEED_CATEGORIES.map((cat) => {
+            const isSelected = activeFilter === cat;
             return (
               <TouchableOpacity
-                key={f}
-                onPress={() => handleFilterSelect(f)}
+                key={cat}
+                onPress={() => handleFilterSelect(cat)}
                 style={[
                   styles.filterChip,
-                  {
-                    backgroundColor: isSelected ? colors.accent : colors.surface,
-                    borderColor: isSelected ? colors.accent : colors.border,
-                  },
+                  isSelected ? styles.filterChipActive : styles.filterChipInactive,
                 ]}
               >
-                {f === 'For You' && (
-                  <Ionicons
-                    name="sparkles"
-                    size={11}
-                    color={isSelected ? (isDark ? '#000000' : '#FFFFFF') : colors.accent}
-                    style={{ marginRight: 4 }}
-                  />
-                )}
                 <Text
                   style={[
-                    typography.badge,
-                    {
-                      color: isSelected ? (isDark ? '#000000' : '#FFFFFF') : colors.textSecondary,
-                      fontSize: 11,
-                    },
+                    styles.filterChipText,
+                    isSelected ? styles.filterChipTextActive : styles.filterChipTextInactive,
                   ]}
                 >
-                  {f}
+                  {cat}
                 </Text>
               </TouchableOpacity>
             );
@@ -333,16 +258,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Feed Content */}
       {loadingInitial ? (
-        <View style={[styles.skeletonContainer, { maxWidth: isTablet ? 720 : '100%', alignSelf: 'center', width: '100%' }]}>
-          <ArticleCardSkeleton />
-          <ArticleCardSkeleton />
-          <ArticleCardSkeleton />
-        </View>
+        <FeedSkeleton />
       ) : error ? (
         <View style={styles.errorState}>
-          <View style={[styles.errorCircle, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="cloud-offline-outline" size={36} color="#DC2626" />
-          </View>
           <Text style={[typography.h2, styles.errorTitle, { color: colors.textPrimary }]}>
             Connection Interrupted
           </Text>
@@ -386,7 +304,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       ) : (
         <FlatList
           ref={flatListRef}
-          data={feedArticles}
+          data={filteredNewsArticles}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.listContent,
@@ -394,7 +312,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
               maxWidth: isTablet ? 740 : '100%',
               alignSelf: 'center',
               width: '100%',
-              paddingBottom: insets.bottom + 85,
+              paddingBottom: insets.bottom + 90,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -403,56 +321,110 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.4}
           ListHeaderComponent={
-            showBento && heroArticle ? (
-              <View style={styles.bentoSection}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={[typography.badge, { color: colors.textTertiary, textTransform: 'uppercase' }]}>
-                    Radar Highlights
-                  </Text>
-                  <View style={[styles.sectionDivider, { backgroundColor: colors.borderLight }]} />
+            <View>
+              {/* Large Hero Card */}
+              {heroArticle && (
+                <View style={styles.heroWrap}>
+                  <BentoCard
+                    article={heroArticle}
+                    variant="hero"
+                    onPress={() => navigation.navigate('ArticleDetail', { article: heroArticle })}
+                  />
                 </View>
+              )}
 
-                {/* Hero Bento Card */}
-                <BentoCard
-                  article={heroArticle}
-                  variant="hero"
-                  onPress={() => navigation.navigate('ArticleDetail', { article: heroArticle })}
-                />
+              {/* Today's Highlights 3-Column Section */}
+              {highlightArticles.length > 0 && (
+                <View style={styles.highlightsSection}>
+                  <Text style={styles.highlightsHeaderTitle}>Today's Highlights</Text>
+                  <View style={styles.highlightsRow}>
+                    {highlightArticles.map((art) => (
+                      <TouchableOpacity
+                        key={art.id}
+                        activeOpacity={0.88}
+                        onPress={() => navigation.navigate('ArticleDetail', { article: art })}
+                        style={styles.highlightColCard}
+                      >
+                        <View style={styles.highlightBadge}>
+                          <Text style={styles.highlightBadgeText} numberOfLines={1}>
+                            {art.category}
+                          </Text>
+                        </View>
+                        <Text style={styles.highlightTitleText} numberOfLines={3}>
+                          {art.title}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
 
-                {/* Secondary 2-Column Bento Cards */}
-                <View style={[styles.secondaryBentoRow, { gap: 12 }]}>
-                  {secondaryArticles.map((item) => (
-                    <View key={item.id} style={{ flex: 1 }}>
-                      <BentoCard
-                        article={item}
-                        variant="secondary"
-                        onPress={() => navigation.navigate('ArticleDetail', { article: item })}
-                      />
-                    </View>
+              {/* Latest News Section Header & Sub-filter tabs */}
+              <View style={styles.latestNewsHeaderRow}>
+                <Text style={styles.latestNewsTitle}>Latest News</Text>
+                <View style={styles.subFilterGroup}>
+                  {(['all', 'breaking', 'analysis'] as const).map((sub) => (
+                    <TouchableOpacity
+                      key={sub}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setNewsSubFilter(sub);
+                      }}
+                      style={[
+                        styles.subFilterPill,
+                        newsSubFilter === sub && styles.subFilterPillActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.subFilterText,
+                          newsSubFilter === sub && styles.subFilterTextActive,
+                        ]}
+                      >
+                        {sub === 'all' ? 'All Stories' : sub === 'breaking' ? 'Breaking' : 'Analysis'}
+                      </Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
-
-                <View style={[styles.sectionHeaderRow, { marginTop: 14, marginBottom: 12 }]}>
-                  <Text style={[typography.badge, { color: colors.textTertiary, textTransform: 'uppercase' }]}>
-                    Latest Dispatches
-                  </Text>
-                  <View style={[styles.sectionDivider, { backgroundColor: colors.borderLight }]} />
-                </View>
               </View>
-            ) : null
+            </View>
           }
           ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.footerLoader}>
-                <ArticleCardSkeleton />
-              </View>
-            ) : (
-              <View style={styles.endOfFeed}>
-                <Text style={[typography.caption, { color: colors.textTertiary }]}>
-                  You're up to date • Scanned from Dawn, Tribune & Geo
-                </Text>
-              </View>
-            )
+            <View style={styles.footerWrap}>
+              {/* Comparison CTA Banner */}
+              {multiSourceStory && (
+                <View style={styles.comparisonCtaCard}>
+                  <View style={styles.ctaBadge}>
+                    <Ionicons name="git-compare-outline" size={13} color="#38BDF8" style={{ marginRight: 5 }} />
+                    <Text style={styles.ctaBadgeText}>MULTI-SOURCE RADAR</Text>
+                  </View>
+                  <Text style={styles.ctaTitle}>Get a wider perspective</Text>
+                  <Text style={styles.ctaSub}>
+                    Compare how Dawn, Tribune, and Geo report this breaking national story.
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={() => navigation.navigate('ArticleDetail', { article: multiSourceStory })}
+                    style={styles.ctaBtn}
+                  >
+                    <Text style={styles.ctaBtnText}>Explore Comparison</Text>
+                    <Ionicons name="arrow-forward" size={15} color="#07090E" style={{ marginLeft: 6 }} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {loadingMore ? (
+                <View style={styles.footerLoader}>
+                  <ArticleCardSkeleton />
+                </View>
+              ) : (
+                <View style={styles.endOfFeed}>
+                  <Text style={styles.endOfFeedText}>
+                    You're up to date • Scanned across Pakistan & Global wires
+                  </Text>
+                </View>
+              )}
+            </View>
           }
           renderItem={({ item }) => (
             <ArticleCard
@@ -468,16 +440,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={handleScrollToTop}
-          style={[
-            styles.scrollTopBtn,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              bottom: insets.bottom + 65,
-            },
-          ]}
+          style={[styles.scrollTopBtn, { bottom: insets.bottom + 65 }]}
         >
-          <Ionicons name="arrow-up" size={17} color={colors.accent} />
+          <Ionicons name="arrow-up" size={17} color="#F8FAFC" />
         </TouchableOpacity>
       )}
 
@@ -495,6 +460,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#07090E',
   },
   topBar: {
     flexDirection: 'row',
@@ -503,88 +469,242 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderBottomWidth: 1,
+    borderBottomColor: '#151B27',
   },
   headerLeft: {
     flex: 1,
   },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  dateText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 1.2,
+  },
+  radarBadge: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  radarBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.6,
+  },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 3,
+    gap: 7,
   },
-  languagePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 7,
-    marginLeft: 10,
-    borderWidth: 1,
+  brandTitleText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    letterSpacing: -0.4,
   },
   topActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   actionIconBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
+    backgroundColor: '#111622',
+    borderWidth: 1,
+    borderColor: '#1E2638',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  langBadgePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 18,
+    backgroundColor: '#111622',
     borderWidth: 1,
+    borderColor: '#1E2638',
   },
-  breakingTicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderBottomWidth: 1,
-    gap: 8,
-  },
-  tickerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
+  langBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F8FAFC',
   },
   filterSection: {
-    paddingVertical: 9,
+    paddingVertical: 10,
   },
   filterScroll: {
     paddingHorizontal: 18,
-    gap: 7,
+    gap: 8,
   },
   filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1,
   },
-  bentoSection: {
-    marginBottom: 6,
+  filterChipActive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#F8FAFC',
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
+  filterChipInactive: {
+    backgroundColor: '#111622',
+    borderColor: '#1E2638',
   },
-  sectionDivider: {
-    flex: 1,
-    height: 1,
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  secondaryBentoRow: {
-    flexDirection: 'row',
+  filterChipTextActive: {
+    color: '#07090E',
+    fontWeight: '700',
   },
-  skeletonContainer: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+  filterChipTextInactive: {
+    color: '#94A3B8',
   },
   listContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+  },
+  heroWrap: {
+    marginBottom: 16,
+  },
+  highlightsSection: {
+    marginBottom: 20,
+  },
+  highlightsHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    marginBottom: 10,
+    letterSpacing: -0.2,
+  },
+  highlightsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  highlightColCard: {
+    flex: 1,
+    backgroundColor: '#111622',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1E2638',
+    padding: 10,
+    minHeight: 110,
+    justifyContent: 'space-between',
+  },
+  highlightBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 5,
+    marginBottom: 8,
+  },
+  highlightBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  highlightTitleText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#F8FAFC',
+    lineHeight: 16,
+  },
+  latestNewsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
     paddingTop: 4,
+  },
+  latestNewsTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    letterSpacing: -0.3,
+  },
+  subFilterGroup: {
+    flexDirection: 'row',
+    backgroundColor: '#111622',
+    borderRadius: 16,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: '#1E2638',
+  },
+  subFilterPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  subFilterPillActive: {
+    backgroundColor: '#1E2638',
+  },
+  subFilterText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  subFilterTextActive: {
+    color: '#F8FAFC',
+    fontWeight: '700',
+  },
+  footerWrap: {
+    paddingTop: 10,
+  },
+  comparisonCtaCard: {
+    backgroundColor: '#111622',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#2A364F',
+    padding: 16,
+    marginBottom: 16,
+  },
+  ctaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  ctaBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#38BDF8',
+    letterSpacing: 0.8,
+  },
+  ctaTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    marginBottom: 4,
+  },
+  ctaSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  ctaBtn: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  ctaBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#07090E',
   },
   footerLoader: {
     marginTop: 6,
@@ -593,46 +713,22 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: 'center',
   },
-  errorState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  errorCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  errorTitle: {
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  errorDesc: {
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  retryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
+  endOfFeedText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    letterSpacing: 0.2,
   },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
+    paddingTop: 60,
   },
   emptyCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -647,22 +743,51 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   resetFilterBtn: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
+  },
+  errorState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 60,
+  },
+  errorTitle: {
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorDesc: {
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  retryBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryBtnText: {
+    color: '#07090E',
+    fontWeight: '700',
+    fontSize: 13,
   },
   scrollTopBtn: {
     position: 'absolute',
     right: 18,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#111622',
     borderWidth: 1,
+    borderColor: '#2A364F',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
     shadowRadius: 5,
     elevation: 4,
   },

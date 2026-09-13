@@ -15,27 +15,27 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList, RootStackParamList, Article } from '../navigation/types';
-import { useTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
-import { fetchBookmarkedArticles, syncBookmarkToFirestore } from '../services/bookmarks';
+import { fetchBookmarkedArticles } from '../services/bookmarks';
 import { ArticleCard } from '../components/feed/ArticleCard';
-import { ArticleCardSkeleton } from '../components/common/SkeletonLoader';
+import { BookmarksSkeleton } from '../components/common/SkeletonLoader';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, 'Bookmarks'>,
   NativeStackScreenProps<RootStackParamList>
 >;
 
+const BOOKMARK_FILTERS = ['All', 'Articles', 'Videos', 'Topics'] as const;
+
 export const BookmarksScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { colors, typography, isDark } = useTheme();
 
   const bookmarkedIds = useAppStore((state) => state.bookmarkedIds);
-  const toggleBookmark = useAppStore((state) => state.toggleBookmark);
   const user = useAppStore((state) => state.user);
   const isGuest = useAppStore((state) => state.isGuest);
 
+  const [activeTab, setActiveTab] = useState<(typeof BOOKMARK_FILTERS)[number]>('All');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,74 +57,105 @@ export const BookmarksScreen: React.FC<Props> = ({ navigation }) => {
     loadSavedArticles();
   }, [loadSavedArticles]);
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <StatusBar barStyle={colors.statusBarStyle} />
+  const filteredArticles = articles.filter((art) => {
+    if (activeTab === 'All') return true;
+    if (activeTab === 'Articles') return true;
+    if (activeTab === 'Videos') return false; // Filter for future video briefs
+    if (activeTab === 'Topics') return Boolean(art.category);
+    return true;
+  });
 
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
-        <View>
-          <Text style={[typography.caption, { color: colors.textTertiary, textTransform: 'uppercase', fontSize: 10.5 }]}>
-            Personal Library
-          </Text>
-          <Text style={[typography.h1, { color: colors.textPrimary, letterSpacing: -0.4 }]}>
-            Bookmarks
-          </Text>
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      {/* Header matching Bookmarks.png */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.librarySubtitle}>YOUR LIBRARY</Text>
+          <Text style={styles.title}>Bookmarks</Text>
         </View>
 
-        <View style={[styles.countPill, { backgroundColor: colors.accentSubtle }]}>
-          <Text style={[styles.countText, { color: colors.textPrimary }]}>
-            {bookmarkedIds.length} {bookmarkedIds.length === 1 ? 'saved' : 'saved'}
-          </Text>
+        <View style={styles.countPill}>
+          <Text style={styles.countText}>{bookmarkedIds.length} saved</Text>
         </View>
       </View>
 
-      {/* Guest Mode Cloud Sync Banner */}
-      {(!user || isGuest) && bookmarkedIds.length > 0 && (
-        <View style={[styles.guestBanner, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}>
-          <Ionicons name="cloud-upload-outline" size={18} color={colors.accent} style={{ marginRight: 8 }} />
-          <Text style={[typography.bodySmall, { color: colors.textSecondary, flex: 1 }]}>
-            Bookmarks saved locally on this device. Sign in anytime to sync across devices.
-          </Text>
+      {/* Filter Pills Row */}
+      <View style={styles.filterPillsRow}>
+        {BOOKMARK_FILTERS.map((tab) => {
+          const isSelected = activeTab === tab;
+          return (
+            <TouchableOpacity
+              key={tab}
+              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveTab(tab);
+              }}
+              style={[
+                styles.filterPill,
+                isSelected ? styles.filterPillActive : styles.filterPillInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  isSelected ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                ]}
+              >
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Saved Locally Sync Info Banner */}
+      {(!user || isGuest) && (
+        <View style={styles.syncBanner}>
+          <View style={styles.syncIconWrap}>
+            <Ionicons name="cloud-outline" size={18} color="#38BDF8" />
+          </View>
+          <View style={styles.syncTextWrap}>
+            <Text style={styles.syncTitle}>Saved locally</Text>
+            <Text style={styles.syncDesc}>
+              Articles are stored on this device. Sign in to sync across devices.
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Login')}
+            style={styles.syncActionBtn}
+          >
+            <Text style={styles.syncActionText}>Sign in</Text>
+          </TouchableOpacity>
         </View>
       )}
 
       {/* Content */}
       {loading ? (
-        <View style={[styles.skeletonContainer, { maxWidth: isTablet ? 740 : '100%', alignSelf: 'center', width: '100%' }]}>
-          <ArticleCardSkeleton />
-          <ArticleCardSkeleton />
-        </View>
-      ) : articles.length === 0 ? (
+        <BookmarksSkeleton />
+      ) : filteredArticles.length === 0 ? (
         <View style={styles.emptyState}>
-          <View style={[styles.emptyIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
-            <Ionicons name="bookmark-outline" size={38} color={colors.textTertiary} />
+          <View style={styles.emptyIconCircle}>
+            <Ionicons name="bookmark-outline" size={38} color="#64748B" />
           </View>
-          <Text style={[typography.h2, styles.emptyTitle, { color: colors.textPrimary }]}>
-            Your Library is Empty
-          </Text>
-          <Text style={[typography.body, styles.emptyDesc, { color: colors.textSecondary }]}>
-            Tap the bookmark icon on any card in your feed to save essential stories for offline reading and research.
+          <Text style={styles.emptyTitle}>Your Library is Empty</Text>
+          <Text style={styles.emptyDesc}>
+            Tap the bookmark icon on any card in your feed to save essential stories for offline reading.
           </Text>
           <TouchableOpacity
             activeOpacity={0.88}
             onPress={() => navigation.navigate('Feed')}
-            style={[styles.exploreBtn, { backgroundColor: colors.accent }]}
+            style={styles.exploreBtn}
           >
-            <Ionicons
-              name="newspaper-outline"
-              size={16}
-              color={isDark ? '#000000' : '#FFFFFF'}
-              style={{ marginRight: 8 }}
-            />
-            <Text style={[typography.button, { color: isDark ? '#000000' : '#FFFFFF' }]}>
-              Explore Dispatches
-            </Text>
+            <Ionicons name="newspaper-outline" size={16} color="#07090E" style={{ marginRight: 8 }} />
+            <Text style={styles.exploreBtnText}>Explore Feed</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={articles}
+          data={filteredArticles}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.listContent,
@@ -153,74 +184,173 @@ export const BookmarksScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#07090E',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  librarySubtitle: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 1.8,
+    marginBottom: 2,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    letterSpacing: -0.4,
   },
   countPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: '#111622',
+    borderWidth: 1,
+    borderColor: '#1E2638',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
   },
   countText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
+    color: '#F8FAFC',
   },
-  guestBanner: {
+  filterPillsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 10,
-    marginHorizontal: 18,
-    marginTop: 10,
-    borderRadius: 10,
+    gap: 8,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
   },
-  skeletonContainer: {
-    paddingHorizontal: 18,
-    paddingTop: 12,
+  filterPillActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  filterPillInactive: {
+    backgroundColor: '#111622',
+    borderColor: '#1E2638',
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterPillTextActive: {
+    color: '#07090E',
+    fontWeight: '700',
+  },
+  filterPillTextInactive: {
+    color: '#94A3B8',
+  },
+  syncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111622',
+    borderWidth: 1,
+    borderColor: '#1E2638',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginHorizontal: 18,
+    marginBottom: 12,
+    borderRadius: 14,
+  },
+  syncIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  syncTextWrap: {
+    flex: 1,
+  },
+  syncTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    marginBottom: 2,
+  },
+  syncDesc: {
+    fontSize: 11,
+    color: '#94A3B8',
+    lineHeight: 15,
+  },
+  syncActionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#1E2638',
+    marginLeft: 8,
+  },
+  syncActionText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  cardWrapper: {
+    marginBottom: 2,
   },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
+    paddingTop: 40,
   },
   emptyIconCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#111622',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1E2638',
   },
   emptyTitle: {
-    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F8FAFC',
     marginBottom: 8,
   },
   emptyDesc: {
+    fontSize: 13,
+    color: '#94A3B8',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: 19,
+    marginBottom: 22,
   },
   exploreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 22,
-    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 12,
   },
-  listContent: {
-    paddingHorizontal: 18,
-    paddingTop: 12,
-  },
-  cardWrapper: {
-    marginBottom: 2,
+  exploreBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#07090E',
   },
 });

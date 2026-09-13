@@ -7,7 +7,10 @@ export async function scrapeGeoNews(): Promise<ScrapedRawArticle[]> {
   const articles: ScrapedRawArticle[] = [];
   const feedUrls = [
     'https://www.geo.tv/rss/1/1', // Pakistan English
+    'https://www.geo.tv/rss/1/2', // World
     'https://www.geo.tv/rss/1/3', // Sports English
+    'https://www.geo.tv/rss/1/4', // Business
+    'https://www.geo.tv/rss/1/5', // Entertainment
   ];
 
   for (const url of feedUrls) {
@@ -48,50 +51,27 @@ export async function scrapeGeoNews(): Promise<ScrapedRawArticle[]> {
         const bodySnippet = desc$.text().trim();
 
         if (title && link) {
-          let category = url.includes('1/3') ? 'Sports' : 'Politics';
+          let category = 'Politics';
           const lower = title.toLowerCase();
 
-          if (
-            lower.includes('cricket') ||
-            lower.includes('pcb') ||
-            lower.includes('psl') ||
-            lower.includes('babar') ||
-            lower.includes('match')
-          ) {
+          if (url.includes('1/3') || lower.includes('cricket') || lower.includes('pcb') || lower.includes('psl') || lower.includes('babar') || lower.includes('match')) {
             category = 'Sports';
-          } else if (
-            lower.includes('economy') ||
-            lower.includes('rupee') ||
-            lower.includes('inflation') ||
-            lower.includes('gold') ||
-            lower.includes('stock') ||
-            lower.includes('tax')
-          ) {
-            category = 'Business';
-          } else if (
-            lower.includes('tech') ||
-            lower.includes('ai') ||
-            lower.includes('telecom') ||
-            lower.includes('digital')
-          ) {
-            category = 'Tech';
-          } else if (
-            lower.includes('drama') ||
-            lower.includes('film') ||
-            lower.includes('music') ||
-            lower.includes('actor') ||
-            lower.includes('cinema')
-          ) {
+          } else if (url.includes('1/4') || lower.includes('economy') || lower.includes('rupee') || lower.includes('inflation') || lower.includes('gold') || lower.includes('stock') || lower.includes('tax')) {
+            category = 'Business & Economy';
+          } else if (lower.includes('tech') || lower.includes('ai') || lower.includes('telecom') || lower.includes('digital')) {
+            category = 'Technology & AI';
+          } else if (url.includes('1/5') || lower.includes('drama') || lower.includes('film') || lower.includes('music') || lower.includes('actor') || lower.includes('cinema')) {
             category = 'Entertainment';
-          } else if (
-            lower.includes('world') ||
-            lower.includes('gaza') ||
-            lower.includes('un') ||
-            lower.includes('china') ||
-            lower.includes('us') ||
-            lower.includes('brics')
-          ) {
+          } else if (url.includes('1/2') || lower.includes('world') || lower.includes('gaza') || lower.includes('un') || lower.includes('china')) {
             category = 'World';
+          } else if (lower.includes('health') || lower.includes('polio') || lower.includes('hospital') || lower.includes('medical')) {
+            category = 'Health';
+          } else if (lower.includes('climate') || lower.includes('smog') || lower.includes('flood') || lower.includes('weather')) {
+            category = 'Environment & Climate';
+          } else if (lower.includes('school') || lower.includes('university') || lower.includes('student') || lower.includes('education')) {
+            category = 'Education';
+          } else if (lower.includes('science') || lower.includes('space')) {
+            category = 'Science';
           }
 
           articles.push({

@@ -27,7 +27,28 @@ export interface SummarizeResult {
   isBreaking: boolean;
 }
 
-const VALID_CATEGORIES = ['Politics', 'Business', 'Tech', 'Sports', 'World', 'Entertainment'];
+export const OFFICIAL_CATEGORIES = [
+  'Politics',
+  'Business & Economy',
+  'Technology & AI',
+  'Sports',
+  'World',
+  'Health',
+  'Entertainment',
+  'Education',
+  'Environment & Climate',
+  'Science',
+] as const;
+
+export function normalizeCategory(cat?: string): string {
+  if (!cat) return 'Politics';
+  const clean = cat.trim();
+  if (clean === 'Business') return 'Business & Economy';
+  if (clean === 'Tech' || clean === 'Technology' || clean === 'AI') return 'Technology & AI';
+  if (clean === 'Environment' || clean === 'Climate') return 'Environment & Climate';
+  if (OFFICIAL_CATEGORIES.includes(clean as any)) return clean;
+  return 'Politics';
+}
 
 export async function summarizeAndCategorizeArticle(
   article: ScrapedRawArticle
@@ -38,12 +59,12 @@ export async function summarizeAndCategorizeArticle(
     return fallbackSummarizer(article);
   }
 
-  const prompt = `You are the chief news editor for Digestly, a premier news briefing app for Pakistan.
-Analyze the following Pakistani news story from ${article.sourceName} and provide:
+  const prompt = `You are the chief news editor for Digestly, a premier news briefing app for Pakistan and global affairs.
+Analyze the following news story from ${article.sourceName} and provide:
 1. "paragraphSummary": A substantial, cohesive editorial prose paragraph of 4 to 6 complete sentences summarizing the entire story with depth, journalistic clarity, and context.
 2. "highlightPhrases": An array of 3 to 5 exact key phrases or numbers (e.g., person names, government bodies, monetary amounts, critical dates, or decisive events) present word-for-word in your "paragraphSummary" that should be highlighted in yellow for skim-reading.
 3. "summary": An array of exactly 3 to 4 concise bullet points (Key Points), each 1 sentence long, capturing high-density facts (names, numbers, events, and key outcomes).
-4. "category": The best-matching category strictly from this list: [Politics, Business, Tech, Sports, World, Entertainment].
+4. "category": The best-matching category strictly from this 10-category list: [Politics, Business & Economy, Technology & AI, Sports, World, Health, Entertainment, Education, Environment & Climate, Science].
 5. "isBreaking": Whether this is urgent, high-consequence breaking news (true/false).
 
 Title: ${article.title}
@@ -75,11 +96,7 @@ Respond in valid JSON only with this structure:
     const content = chatCompletion.choices[0]?.message?.content;
     if (content) {
       const parsed = JSON.parse(content);
-      const category = VALID_CATEGORIES.includes(parsed.category)
-        ? parsed.category
-        : article.category && VALID_CATEGORIES.includes(article.category)
-        ? article.category
-        : 'Politics';
+      const category = normalizeCategory(parsed.category || article.category);
 
       const summaryLines = Array.isArray(parsed.summary) && parsed.summary.length >= 2
         ? parsed.summary.slice(0, 4)
@@ -160,19 +177,27 @@ function fallbackSummarizer(article: ScrapedRawArticle): SummarizeResult {
   const highlightPhrases = Array.from(highlightSet).slice(0, 4);
 
   // Detect category
-  let category = article.category || 'Politics';
+  let category = normalizeCategory(article.category);
   const lowerTitle = article.title.toLowerCase();
 
-  if (lowerTitle.includes('cricket') || lowerTitle.includes('pcb') || lowerTitle.includes('psl') || lowerTitle.includes('match')) {
+  if (lowerTitle.includes('cricket') || lowerTitle.includes('pcb') || lowerTitle.includes('psl') || lowerTitle.includes('match') || lowerTitle.includes('football')) {
     category = 'Sports';
-  } else if (lowerTitle.includes('economy') || lowerTitle.includes('sbp') || lowerTitle.includes('inflation') || lowerTitle.includes('psx') || lowerTitle.includes('rupee') || lowerTitle.includes('imf')) {
-    category = 'Business';
-  } else if (lowerTitle.includes('ai') || lowerTitle.includes('tech') || lowerTitle.includes('software') || lowerTitle.includes('startup') || lowerTitle.includes('telecom')) {
-    category = 'Tech';
-  } else if (lowerTitle.includes('film') || lowerTitle.includes('cinema') || lowerTitle.includes('actor') || lowerTitle.includes('music') || lowerTitle.includes('drama')) {
+  } else if (lowerTitle.includes('economy') || lowerTitle.includes('sbp') || lowerTitle.includes('inflation') || lowerTitle.includes('psx') || lowerTitle.includes('rupee') || lowerTitle.includes('imf') || lowerTitle.includes('trade')) {
+    category = 'Business & Economy';
+  } else if (lowerTitle.includes('ai') || lowerTitle.includes('tech') || lowerTitle.includes('software') || lowerTitle.includes('startup') || lowerTitle.includes('telecom') || lowerTitle.includes('digital')) {
+    category = 'Technology & AI';
+  } else if (lowerTitle.includes('film') || lowerTitle.includes('cinema') || lowerTitle.includes('actor') || lowerTitle.includes('music') || lowerTitle.includes('drama') || lowerTitle.includes('show')) {
     category = 'Entertainment';
-  } else if (lowerTitle.includes('israel') || lowerTitle.includes('gaza') || lowerTitle.includes('us') || lowerTitle.includes('un') || lowerTitle.includes('china') || lowerTitle.includes('global') || lowerTitle.includes('brics')) {
+  } else if (lowerTitle.includes('israel') || lowerTitle.includes('gaza') || lowerTitle.includes('us') || lowerTitle.includes('un') || lowerTitle.includes('china') || lowerTitle.includes('global') || lowerTitle.includes('brics') || lowerTitle.includes('war')) {
     category = 'World';
+  } else if (lowerTitle.includes('health') || lowerTitle.includes('polio') || lowerTitle.includes('vaccine') || lowerTitle.includes('hospital') || lowerTitle.includes('disease')) {
+    category = 'Health';
+  } else if (lowerTitle.includes('climate') || lowerTitle.includes('flood') || lowerTitle.includes('smog') || lowerTitle.includes('environment') || lowerTitle.includes('carbon')) {
+    category = 'Environment & Climate';
+  } else if (lowerTitle.includes('school') || lowerTitle.includes('university') || lowerTitle.includes('student') || lowerTitle.includes('education') || lowerTitle.includes('exam')) {
+    category = 'Education';
+  } else if (lowerTitle.includes('science') || lowerTitle.includes('space') || lowerTitle.includes('nasa') || lowerTitle.includes('research') || lowerTitle.includes('physics')) {
+    category = 'Science';
   }
 
   const isBreaking = lowerTitle.includes('breaking') || lowerTitle.includes('urgent') || lowerTitle.includes('earthquake') || lowerTitle.includes('blast') || lowerTitle.includes('killed');
@@ -181,7 +206,7 @@ function fallbackSummarizer(article: ScrapedRawArticle): SummarizeResult {
     summary: summary.slice(0, 3),
     paragraphSummary,
     highlightPhrases,
-    category: VALID_CATEGORIES.includes(category) ? category : 'Politics',
+    category,
     isBreaking,
   };
 }

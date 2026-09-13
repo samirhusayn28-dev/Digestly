@@ -1,7 +1,7 @@
 export interface ScrapedRawArticle {
   title: string;
   body: string;
-  sourceName: 'Dawn' | 'The Express Tribune' | 'Geo News';
+  sourceName: 'Dawn' | 'The Express Tribune' | 'Geo News' | 'BBC World' | 'Al Jazeera' | string;
   sourceUrl: string;
   category?: string;
   imageUrl?: string | null;

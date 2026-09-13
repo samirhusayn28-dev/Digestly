@@ -201,6 +201,82 @@ export const REALISTIC_SEED_ARTICLES: Article[] = [
       },
     ],
   },
+  {
+    id: 'health-polio-eradication-drive',
+    title: 'Nationwide Immunization Drive Targets 45 Million Children Across Pakistan',
+    paragraphSummary:
+      'Pakistan launched its largest synchronized polio and childhood immunization campaign of the year, deploying over 400,000 healthcare workers nationwide. The seven-day campaign prioritizes border districts and transit hubs with rigorous finger-marking and cold-chain temperature verification. National health coordinators reported zero security incidents during the initial phase. Public health experts noted significant decline in environmental sample detections.',
+    highlightPhrases: ['45 Million Children', '400,000 healthcare workers', 'cold-chain temperature', 'environmental sample'],
+    summary: [
+      'Over 400,000 dedicated frontline health workers deployed to immunize children under 5 across all provinces.',
+      'Campaign prioritizes high-density border transit hubs with strict cold-chain verification.',
+      'Federal health emergency centers report positive containment markers in major metropolitan zones.',
+    ],
+    sourceName: 'Dawn',
+    sourceUrl: 'https://www.dawn.com/news/1879007',
+    category: 'Health',
+    imageUrl: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=600&q=80',
+    publishedAt: '6h ago',
+    scrapedAt: new Date().toISOString(),
+    isBreaking: false,
+  },
+  {
+    id: 'climate-glacier-monitoring-system',
+    title: 'Pakistan Deploys Satellite Early-Warning Network for Glacial Lake Outburst Floods',
+    paragraphSummary:
+      'Climate authorities activated high-altitude automated telemetry sensors across 24 vulnerable valleys in Gilgit-Baltistan and Khyber Pakhtunkhwa. The radar-linked network issues real-time seismic and water-discharge warnings directly to disaster management command centers. The initiative is funded by the UN Green Climate Fund to mitigate catastrophic glacial lake outburst floods. Early test transmissions confirmed sub-second telemetry relay during harsh mountain snowfall.',
+    highlightPhrases: ['automated telemetry sensors', 'Gilgit-Baltistan and Khyber Pakhtunkhwa', 'Green Climate Fund', 'glacial lake outburst floods'],
+    summary: [
+      'Automated radar discharge sensors installed across 24 glacial basins in Karakoram and Hindu Kush.',
+      'Early warning network relays critical seismic and water level changes in under 60 seconds.',
+      'Project backed by UN Green Climate Fund to safeguard over 1.2 million mountain valley inhabitants.',
+    ],
+    sourceName: 'The Express Tribune',
+    sourceUrl: 'https://tribune.com.pk/story/249008/glacier-warning',
+    category: 'Environment & Climate',
+    imageUrl: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80',
+    publishedAt: '7h ago',
+    scrapedAt: new Date().toISOString(),
+    isBreaking: false,
+  },
+  {
+    id: 'education-stem-curriculum-revamp',
+    title: 'National Curriculum Council Rolls Out AI & Robotics Modules for Public Schools',
+    paragraphSummary:
+      'The National Curriculum Council introduced standardized computational thinking and robotics modules across secondary public schools nationwide. Under the initiative, over 5,000 state school computer labs are being equipped with modern educational hardware and teacher training guides. Software developers and university faculties assisted in designing practical, project-based curriculums in both English and Urdu. Officials stated the reform aims to equip students with practical high-tech competencies early in life.',
+    highlightPhrases: ['computational thinking and robotics', '5,000 state school computer labs', 'both English and Urdu', 'National Curriculum Council'],
+    summary: [
+      'Robotics and practical programming introduced into grades 6 to 10 standard curriculum.',
+      'Phase one equips 5,000 public school laboratories with interactive hardware kits and fiber connectivity.',
+      'Bilingual learning material developed in collaboration with top engineering universities.',
+    ],
+    sourceName: 'Dawn',
+    sourceUrl: 'https://www.dawn.com/news/1879009',
+    category: 'Education',
+    imageUrl: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=600&q=80',
+    publishedAt: '8h ago',
+    scrapedAt: new Date().toISOString(),
+    isBreaking: false,
+  },
+  {
+    id: 'science-pakistan-space-satellite',
+    title: 'SUPARCO Completes Flight Testing of Advanced Optical Remote Sensing Satellite',
+    paragraphSummary:
+      'Pakistan’s national space agency, SUPARCO, announced the successful environmental qualification testing of its high-resolution multi-spectral Earth observation satellite. Designed for agricultural soil monitoring, urban development tracking, and disaster damage assessments, the satellite features sub-meter optical imaging payloads. Launch arrangements are on track for orbital delivery later this year from a regional spaceport. Aerospace engineers praised the team for achieving over 70% indigenous subsystem integration.',
+    highlightPhrases: ['SUPARCO', 'Earth observation satellite', 'sub-meter optical imaging', 'indigenous subsystem integration'],
+    summary: [
+      'SUPARCO completes comprehensive thermal vacuum and vibration testing on next-gen observation satellite.',
+      'Sub-meter optical cameras will provide high-precision mapping for precision agriculture and flood relief.',
+      'Over 70% of electronic avionics and telecommand software engineered domestically.',
+    ],
+    sourceName: 'Geo News',
+    sourceUrl: 'https://geo.tv/sci-tech/suparco-earth-observation-satellite',
+    category: 'Science',
+    imageUrl: 'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=600&q=80',
+    publishedAt: '9h ago',
+    scrapedAt: new Date().toISOString(),
+    isBreaking: false,
+  },
 ];
 
 export interface FetchArticlesParams {

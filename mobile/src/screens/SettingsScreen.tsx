@@ -32,12 +32,24 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const NOTIFICATION_CATEGORIES = [
-  { id: 'breaking', label: 'Breaking News Alerts', icon: 'flash' },
-  { id: 'politics', label: 'Politics', icon: 'shield-checkmark' },
-  { id: 'business', label: 'Business & Economy', icon: 'trending-up' },
-  { id: 'tech', label: 'Technology & AI', icon: 'hardware-chip' },
-  { id: 'sports', label: 'Sports', icon: 'trophy' },
+interface CategoryPrefItem {
+  id: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+}
+
+const CATEGORY_PREFS: CategoryPrefItem[] = [
+  { id: 'Politics', label: 'Politics', icon: 'megaphone-outline', color: '#EF4444' },
+  { id: 'Business & Economy', label: 'Business & Economy', icon: 'trending-up-outline', color: '#10B981' },
+  { id: 'Technology & AI', label: 'Technology & AI', icon: 'hardware-chip-outline', color: '#38BDF8' },
+  { id: 'Sports', label: 'Sports', icon: 'football-outline', color: '#F59E0B' },
+  { id: 'World', label: 'World', icon: 'globe-outline', color: '#6366F1' },
+  { id: 'Health', label: 'Health', icon: 'fitness-outline', color: '#14B8A6' },
+  { id: 'Entertainment', label: 'Entertainment', icon: 'film-outline', color: '#EC4899' },
+  { id: 'Education', label: 'Education', icon: 'school-outline', color: '#0EA5E9' },
+  { id: 'Environment & Climate', label: 'Environment & Climate', icon: 'leaf-outline', color: '#84CC16' },
+  { id: 'Science', label: 'Science', icon: 'flask-outline', color: '#8B5CF6' },
 ];
 
 export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
@@ -58,15 +70,25 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
   const isTablet = width >= 768;
 
-  const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>(
-    user?.notificationPrefs || {
+  const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {
       breaking: true,
-      politics: true,
-      business: true,
-      tech: true,
-      sports: false,
+      Politics: true,
+      'Business & Economy': true,
+      'Technology & AI': true,
+      Sports: true,
+      World: true,
+      Health: true,
+      Entertainment: true,
+      Education: true,
+      'Environment & Climate': true,
+      Science: true,
+    };
+    if (user?.notificationPrefs) {
+      return { ...initial, ...user.notificationPrefs };
     }
-  );
+    return initial;
+  });
 
   useEffect(() => {
     if (user?.uid) {
@@ -93,24 +115,26 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     await scheduleBreakingNewsNotification(
       'SBP maintains policy rate at 11%',
       'Inflation reaches target band as currency stabilizes at 278/USD.',
-      'Business',
+      'Business & Economy',
       notificationPrefs
     );
     Alert.alert(
-      'Notification Sent',
-      'A test breaking alert was scheduled. Check your device notifications.',
+      'Breaking Alert Triggered',
+      'A test notification has been scheduled. Check your device banner or notification shade.',
       [{ text: 'OK' }]
     );
   };
 
   const handleLogout = () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out of Digestly?',
+      user && !isGuest ? 'Sign Out' : 'Reset Session',
+      user && !isGuest
+        ? 'Are you sure you want to sign out of Digestly?'
+        : 'This will reset your guest preferences and return to welcome screen.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Sign Out',
+          text: user && !isGuest ? 'Sign Out' : 'Reset',
           style: 'destructive',
           onPress: async () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -133,11 +157,31 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar barStyle={colors.statusBarStyle} />
 
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
-        <Text style={[typography.h1, { color: colors.textPrimary, letterSpacing: -0.4 }]}>
-          Settings
-        </Text>
+      {/* Header with decorative Stay Informed crescent */}
+      <View style={[styles.headerContainer, { borderBottomColor: colors.borderLight }]}>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.headerBadge, { color: colors.textTertiary }]}>
+            SETTINGS
+          </Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+            Settings
+          </Text>
+          <Text style={[styles.headerSubtext, { color: colors.textSecondary }]}>
+            Customize your news experience.
+          </Text>
+        </View>
+
+        {/* Decorative Top-Right Crescent / Globe with handwritten Stay Informed */}
+        <View style={styles.headerRightGraphic}>
+          <View style={[styles.crescentOuter, { borderColor: isDark ? '#1E2638' : '#E2E8F0' }]}>
+            <View style={[styles.crescentInner, { backgroundColor: isDark ? '#0D111A' : '#F1F5F9' }]}>
+              <Ionicons name="moon" size={16} color={isDark ? '#F8FAFC' : '#0F172A'} />
+            </View>
+          </View>
+          <Text style={[styles.stayInformedText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+            Stay Informed
+          </Text>
+        </View>
       </View>
 
       <ScrollView
@@ -147,267 +191,270 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
             maxWidth: isTablet ? 740 : '100%',
             alignSelf: 'center',
             width: '100%',
-            paddingBottom: insets.bottom + 85,
+            paddingBottom: insets.bottom + 95,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Section 1: Account */}
+        {/* SECTION 1: ACCOUNT */}
         <View style={styles.section}>
-          <Text style={[typography.badge, styles.sectionTitle, { color: colors.textTertiary }]}>
-            Account
+          <Text style={[styles.sectionHeading, { color: colors.textTertiary }]}>
+            ACCOUNT
           </Text>
 
           {user && !isGuest ? (
-            <View
-              style={[
-                styles.profileCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              {user.photoURL ? (
-                <Image
-                  source={{ uri: user.photoURL }}
-                  style={styles.avatarImage}
-                  contentFit="cover"
-                  transition={250}
-                />
-              ) : (
-                <View style={[styles.avatarFallback, { backgroundColor: colors.accentSubtle }]}>
-                  <Text style={[styles.avatarInitial, { color: colors.accent }]}>
-                    {user.displayName ? user.displayName.charAt(0).toUpperCase() : 'D'}
-                  </Text>
-                </View>
-              )}
+            <View style={[styles.accountCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.accountTopRow}>
+                {user.photoURL ? (
+                  <Image
+                    source={{ uri: user.photoURL }}
+                    style={styles.avatarImage}
+                    contentFit="cover"
+                    transition={250}
+                  />
+                ) : (
+                  <View style={[styles.avatarFallback, { backgroundColor: colors.accentSubtle }]}>
+                    <Text style={[styles.avatarInitial, { color: colors.accent }]}>
+                      {user.displayName ? user.displayName.charAt(0).toUpperCase() : 'D'}
+                    </Text>
+                  </View>
+                )}
 
-              <View style={styles.profileInfo}>
-                <Text style={[typography.h3, { color: colors.textPrimary }]}>
-                  {user.displayName || 'Digestly Reader'}
-                </Text>
-                <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: 1 }]}>
-                  {user.email}
-                </Text>
-                <View style={styles.badgeAuthRow}>
-                  <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
-                  <Text style={[typography.caption, { color: '#16A34A', marginLeft: 4, fontWeight: '600' }]}>
-                    Synced with Google
+                <View style={styles.accountInfo}>
+                  <Text style={[styles.accountName, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {user.displayName || 'Digestly Reader'}
+                  </Text>
+                  <Text style={[styles.accountEmail, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {user.email}
                   </Text>
                 </View>
+              </View>
+
+              <View style={[styles.syncStatusRow, { borderTopColor: colors.borderLight }]}>
+                <Ionicons name="cloud-done-outline" size={16} color="#10B981" />
+                <Text style={[styles.syncStatusText, { color: '#10B981' }]}>
+                  Bookmarks & interests synced with Google
+                </Text>
               </View>
             </View>
           ) : (
-            <View
-              style={[
-                styles.profileCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <View style={[styles.avatarFallback, { backgroundColor: colors.accentSubtle }]}>
-                <Ionicons name="person-outline" size={24} color={colors.accent} />
+            <View style={[styles.accountCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.accountTopRow}>
+                <View style={[styles.avatarFallback, { backgroundColor: isDark ? '#182030' : '#E2E8F0' }]}>
+                  <Ionicons name="person-outline" size={24} color={colors.textSecondary} />
+                </View>
+
+                <View style={styles.accountInfo}>
+                  <Text style={[styles.accountName, { color: colors.textPrimary }]}>
+                    Guest Reader
+                  </Text>
+                  <Text style={[styles.accountEmail, { color: colors.textTertiary }]}>
+                    Bookmarks stored locally on this device.
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.profileInfo}>
-                <Text style={[typography.h3, { color: colors.textPrimary }]}>
-                  Guest Reader
+              {/* Cloud notice */}
+              <View style={styles.cloudNoticeRow}>
+                <Ionicons name="cloud-outline" size={15} color={colors.textTertiary} style={{ marginRight: 6 }} />
+                <Text style={[styles.cloudNoticeText, { color: colors.textSecondary }]}>
+                  Sign in with Google to sync across devices and keep your bookmarks safe.
                 </Text>
-                <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
-                  Bookmarks stored locally on this device.
-                </Text>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('Login')}
-                  style={styles.signInLink}
-                >
-                  <Text style={[typography.caption, { color: colors.accent, fontWeight: '700' }]}>
-                    Sign in with Google to sync →
-                  </Text>
-                </TouchableOpacity>
               </View>
+
+              {/* Solid White Google Sign-in Button */}
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate('Login');
+                }}
+                style={styles.googleSignInButton}
+              >
+                <Ionicons name="logo-google" size={18} color="#000000" style={{ marginRight: 8 }} />
+                <Text style={styles.googleSignInText}>
+                  Sign in with Google
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* Section 2: News Preferences */}
+        {/* SECTION 2: PREFERENCES */}
         <View style={styles.section}>
-          <Text style={[typography.badge, styles.sectionTitle, { color: colors.textTertiary }]}>
-            News Preferences
+          <Text style={[styles.sectionHeading, { color: colors.textTertiary }]}>
+            PREFERENCES
           </Text>
 
-          {/* News Content Language Toggle */}
-          <View
-            style={[
-              styles.groupedCard,
-              { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 12 },
-            ]}
-          >
-            <View style={styles.languageCardContent}>
-              <View style={styles.settingLabelRow}>
-                <Ionicons name="language-outline" size={18} color={colors.accent} style={{ marginRight: 10 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[typography.bodyMedium, { color: colors.textPrimary, fontWeight: '600' }]}>
-                    News Content Language
-                  </Text>
-                  <Text style={[typography.caption, { color: colors.textTertiary, marginTop: 1 }]}>
-                    Translates headlines & 3-line summaries
-                  </Text>
-                </View>
+          {/* News Content Language Segmented Card */}
+          <View style={[styles.prefCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.prefCardHeader}>
+              <View style={[styles.prefIconBox, { backgroundColor: isDark ? '#182030' : '#F1F5F9' }]}>
+                <Ionicons name="language-outline" size={18} color={colors.textPrimary} />
               </View>
-
-              {/* EN vs Urdu Segmented Pill */}
-              <View style={[styles.langSegment, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderLight }]}>
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setNewsLanguage('en');
-                  }}
-                  style={[
-                    styles.langSegmentOption,
-                    newsLanguage === 'en' && {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      borderWidth: 1,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.badge,
-                      {
-                        color: newsLanguage === 'en' ? colors.textPrimary : colors.textTertiary,
-                        fontWeight: '700',
-                      },
-                    ]}
-                  >
-                    English
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setNewsLanguage('ur');
-                  }}
-                  style={[
-                    styles.langSegmentOption,
-                    newsLanguage === 'ur' && {
-                      backgroundColor: colors.accent,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.badge,
-                      {
-                        color: newsLanguage === 'ur' ? (isDark ? '#000000' : '#FFFFFF') : colors.textTertiary,
-                        fontWeight: '700',
-                      },
-                    ]}
-                  >
-                    اردو (Urdu)
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Curated Topics / Interests */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('Interests')}
-            style={[
-              styles.settingRow,
-              { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 12 },
-            ]}
-          >
-            <View style={styles.settingLabelRow}>
-              <Ionicons name="options-outline" size={18} color={colors.accent} style={{ marginRight: 10 }} />
-              <View>
-                <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
-                  Curated Topics
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.prefTitle, { color: colors.textPrimary }]}>
+                  News Content Language
                 </Text>
-                <Text style={[typography.caption, { color: colors.textTertiary }]}>
-                  {selectedInterests.length} of 18 categories selected
+                <Text style={[styles.prefSubtitle, { color: colors.textTertiary }]}>
+                  Translates headlines & 3-line summaries
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
-          </TouchableOpacity>
 
-          {/* Category Push Notifications */}
-          <View
-            style={[
-              styles.groupedCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            {NOTIFICATION_CATEGORIES.map((item, index) => (
-              <View
-                key={item.id}
+            {/* Segmented Control [ ENGLISH | اردو ] */}
+            <View style={[styles.langSegmentControl, { backgroundColor: isDark ? '#0D111A' : '#F8FAFC', borderColor: colors.borderLight }]}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setNewsLanguage('en');
+                }}
                 style={[
-                  styles.groupedRow,
-                  index < NOTIFICATION_CATEGORIES.length - 1 && {
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.borderLight,
+                  styles.langSegmentBtn,
+                  newsLanguage === 'en' && {
+                    backgroundColor: isDark ? '#F8FAFC' : '#0F172A',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 2,
+                    elevation: 2,
                   },
                 ]}
               >
-                <View style={styles.settingLabelRow}>
-                  <Ionicons
-                    name={item.icon as any}
-                    size={17}
-                    color={colors.textSecondary}
-                    style={{ marginRight: 10 }}
-                  />
-                  <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
-                    {item.label}
-                  </Text>
-                </View>
+                <Text
+                  style={[
+                    styles.langSegmentText,
+                    {
+                      color: newsLanguage === 'en'
+                        ? (isDark ? '#07090E' : '#FFFFFF')
+                        : colors.textTertiary,
+                      fontWeight: '700',
+                    },
+                  ]}
+                >
+                  ENGLISH
+                </Text>
+              </TouchableOpacity>
 
-                <Switch
-                  value={notificationPrefs[item.id] ?? false}
-                  onValueChange={() => toggleNotification(item.id)}
-                  trackColor={{ false: colors.border, true: colors.accent }}
-                  thumbColor={'#FFFFFF'}
-                />
-              </View>
-            ))}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setNewsLanguage('ur');
+                }}
+                style={[
+                  styles.langSegmentBtn,
+                  newsLanguage === 'ur' && {
+                    backgroundColor: isDark ? '#F8FAFC' : '#0F172A',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 2,
+                    elevation: 2,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.langSegmentText,
+                    {
+                      color: newsLanguage === 'ur'
+                        ? (isDark ? '#07090E' : '#FFFFFF')
+                        : colors.textTertiary,
+                      fontWeight: '700',
+                    },
+                  ]}
+                >
+                  اردو (URDU)
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Test notification button */}
+          {/* Curated Topics Row */}
           <TouchableOpacity
-            onPress={handleTestNotification}
-            style={[styles.testNotifBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            activeOpacity={0.85}
+            onPress={() => {
+              Haptics.selectionAsync();
+              navigation.navigate('Interests');
+            }}
+            style={[styles.clickableRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
-            <Ionicons name="notifications-outline" size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
-            <Text style={[typography.button, { color: colors.textPrimary, fontSize: 13 }]}>
-              Trigger Test Breaking Alert
-            </Text>
+            <View style={styles.clickableRowLeft}>
+              <View style={[styles.prefIconBox, { backgroundColor: isDark ? '#182030' : '#F1F5F9' }]}>
+                <Ionicons name="sparkles-outline" size={17} color={colors.textPrimary} />
+              </View>
+              <View>
+                <Text style={[styles.prefTitle, { color: colors.textPrimary }]}>
+                  Curated Topics
+                </Text>
+                <Text style={[styles.prefSubtitle, { color: colors.textTertiary }]}>
+                  {selectedInterests.length > 0 ? `${selectedInterests.length} of 10 selected` : '10 of 10 active'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.clickableRowRight}>
+              <Text style={[styles.activePillBadge, { color: colors.textSecondary }]}>
+                {selectedInterests.length > 0 ? `${selectedInterests.length} active` : 'All 10 active'}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+            </View>
           </TouchableOpacity>
+
+          {/* 10 Category Switch Rows with Colored Icon Badges */}
+          <View style={[styles.categoryListCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {CATEGORY_PREFS.map((cat, idx) => {
+              const isEnabled = notificationPrefs[cat.id] ?? true;
+              return (
+                <View
+                  key={cat.id}
+                  style={[
+                    styles.categoryRow,
+                    idx < CATEGORY_PREFS.length - 1 && {
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.borderLight,
+                    },
+                  ]}
+                >
+                  <View style={styles.categoryRowLeft}>
+                    <View style={[styles.categoryIconBadge, { backgroundColor: cat.color + '22' }]}>
+                      <Ionicons name={cat.icon} size={15} color={cat.color} />
+                    </View>
+                    <Text style={[styles.categoryLabel, { color: colors.textPrimary }]}>
+                      {cat.label}
+                    </Text>
+                  </View>
+
+                  <Switch
+                    value={isEnabled}
+                    onValueChange={() => toggleNotification(cat.id)}
+                    trackColor={{ false: isDark ? '#1E2638' : '#E2E8F0', true: isDark ? '#F8FAFC' : '#0F172A' }}
+                    thumbColor={isEnabled ? (isDark ? '#07090E' : '#FFFFFF') : '#94A3B8'}
+                  />
+                </View>
+              );
+            })}
+          </View>
         </View>
 
-        {/* Section 3: Appearance */}
+        {/* SECTION 3: SYSTEM & ALERTS */}
         <View style={styles.section}>
-          <Text style={[typography.badge, styles.sectionTitle, { color: colors.textTertiary }]}>
-            Appearance
+          <Text style={[styles.sectionHeading, { color: colors.textTertiary }]}>
+            SYSTEM & ALERTS
           </Text>
 
-          <View
-            style={[
-              styles.settingRow,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.settingLabelRow}>
-              <Ionicons
-                name={isDark ? 'moon' : 'sunny'}
-                size={18}
-                color={colors.accent}
-                style={{ marginRight: 10 }}
-              />
+          {/* Dark Mode Toggle */}
+          <View style={[styles.clickableRow, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 10 }]}>
+            <View style={styles.clickableRowLeft}>
+              <View style={[styles.prefIconBox, { backgroundColor: isDark ? '#182030' : '#F1F5F9' }]}>
+                <Ionicons name={isDark ? 'moon' : 'sunny'} size={18} color={isDark ? '#38BDF8' : '#F59E0B'} />
+              </View>
               <View>
-                <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
+                <Text style={[styles.prefTitle, { color: colors.textPrimary }]}>
                   Dark Mode
                 </Text>
-                <Text style={[typography.caption, { color: colors.textTertiary }]}>
+                <Text style={[styles.prefSubtitle, { color: colors.textTertiary }]}>
                   High contrast tuned for night reading
                 </Text>
               </View>
@@ -419,40 +466,52 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
                 Haptics.selectionAsync();
                 setThemeMode(val ? 'dark' : 'light');
               }}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor={'#FFFFFF'}
+              trackColor={{ false: isDark ? '#1E2638' : '#E2E8F0', true: isDark ? '#F8FAFC' : '#0F172A' }}
+              thumbColor={isDark ? '#07090E' : '#FFFFFF'}
             />
           </View>
+
+          {/* Trigger Test Breaking Alert Button */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleTestNotification}
+            style={[styles.testAlertBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <View style={styles.testAlertLeft}>
+              <Ionicons name="notifications-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+              <Text style={[styles.testAlertText, { color: colors.textPrimary }]}>
+                Trigger Test Breaking Alert
+              </Text>
+            </View>
+            <Ionicons name="flash-outline" size={15} color="#EF4444" />
+          </TouchableOpacity>
         </View>
 
-        {/* Section 4: Sign Out / Account Action */}
+        {/* SECTION 4: RESET / LOGOUT */}
         <View style={styles.section}>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleLogout}
-            style={[
-              styles.logoutButton,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
+            style={[styles.logoutBtn, { backgroundColor: isDark ? '#161214' : '#FEF2F2', borderColor: isDark ? '#3A1E24' : '#FECACA' }]}
           >
-            <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 8 }} />
-            <Text style={[typography.button, { color: '#EF4444' }]}>
+            <Ionicons name="log-out-outline" size={17} color="#EF4444" style={{ marginRight: 8 }} />
+            <Text style={[styles.logoutText, { color: '#EF4444' }]}>
               {user && !isGuest ? 'Sign Out' : 'Reset Session'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Maker Attribution & About Digestly */}
-        <View style={styles.aboutSection}>
+        {/* SECTION 5: FOOTER ATTRIBUTION */}
+        <View style={styles.footerContainer}>
           <DigestlyLogo size="sm" />
-          <Text style={[typography.badge, { color: colors.textPrimary, marginTop: 8, letterSpacing: 0.5 }]}>
-            DIGESTLY v1.0.0
+          <Text style={[styles.appVersion, { color: colors.textPrimary }]}>
+            DIGESTLY v1.3.0
           </Text>
-          <Text style={[typography.caption, { color: colors.textTertiary, marginTop: 3, textAlign: 'center' }]}>
-            Editorial news aggregator summarizing Dawn, The Express Tribune & Geo News
+          <Text style={[styles.appDescription, { color: colors.textTertiary }]}>
+            Editorial news aggregator summarizing Dawn, The Express Tribune, Geo News, BBC World & Al Jazeera
           </Text>
-          <View style={[styles.makerTag, { backgroundColor: colors.surfaceSubtle }]}>
-            <Text style={[typography.caption, { color: colors.textSecondary, fontWeight: '600', fontSize: 11 }]}>
+          <View style={[styles.makerPill, { backgroundColor: isDark ? '#111622' : '#F1F5F9', borderColor: colors.border }]}>
+            <Text style={[styles.makerText, { color: colors.textSecondary }]}>
               Made by Studio Xenos
             </Text>
           </View>
@@ -466,130 +525,310 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingTop: 10,
+    paddingBottom: 14,
     borderBottomWidth: 1,
   },
+  headerLeft: {
+    flex: 1,
+  },
+  headerBadge: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 2,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    fontSize: 13,
+    marginTop: 2,
+    letterSpacing: -0.1,
+  },
+  headerRightGraphic: {
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  crescentOuter: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 3,
+  },
+  crescentInner: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stayInformedText: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 22,
   },
-  sectionTitle: {
-    marginBottom: 8,
-    marginLeft: 2,
-    textTransform: 'uppercase',
+  sectionHeading: {
     fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginLeft: 4,
   },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
+  accountCard: {
     borderRadius: 14,
     borderWidth: 1,
+    padding: 14,
+  },
+  accountTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     marginRight: 12,
   },
   avatarFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   avatarInitial: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  profileInfo: {
+  accountInfo: {
     flex: 1,
   },
-  badgeAuthRow: {
+  accountName: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  accountEmail: {
+    fontSize: 12.5,
+    marginTop: 2,
+  },
+  cloudNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  cloudNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  googleSignInButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 3,
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    height: 44,
+    marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  signInLink: {
-    marginTop: 5,
+  googleSignInText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '700',
   },
-  settingRow: {
+  syncStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  syncStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  prefCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 10,
+  },
+  prefCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  prefIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  prefTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  prefSubtitle: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+  langSegmentControl: {
+    flexDirection: 'row',
+    borderRadius: 9,
+    borderWidth: 1,
+    padding: 3,
+  },
+  langSegmentBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langSegmentText: {
+    fontSize: 11.5,
+    letterSpacing: 0.6,
+  },
+  clickableRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderRadius: 14,
+    borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    marginBottom: 10,
   },
-  groupedCard: {
-    borderRadius: 12,
+  clickableRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  clickableRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activePillBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  categoryListCard: {
+    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
   },
-  languageCardContent: {
-    padding: 12,
-  },
-  langSegment: {
-    flexDirection: 'row',
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 3,
-    marginTop: 10,
-  },
-  langSegmentOption: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  groupedRow: {
+  categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
-  settingLabelRow: {
+  categoryRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  testNotifBtn: {
-    flexDirection: 'row',
+  categoryIconBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 42,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginTop: 8,
+    marginRight: 11,
   },
-  logoutButton: {
+  categoryLabel: {
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  testAlertBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  testAlertLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  testAlertText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 46,
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
   },
-  aboutSection: {
-    alignItems: 'center',
-    marginTop: 8,
-    paddingVertical: 16,
+  logoutText: {
+    fontSize: 13.5,
+    fontWeight: '700',
   },
-  makerTag: {
+  footerContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 4,
+  },
+  appVersion: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginTop: 8,
+  },
+  appDescription: {
+    fontSize: 11.5,
+    textAlign: 'center',
+    marginTop: 4,
+    paddingHorizontal: 20,
+    lineHeight: 16,
+  },
+  makerPill: {
     marginTop: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  makerText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

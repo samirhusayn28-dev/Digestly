@@ -8,6 +8,10 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
   const feedUrls = [
     'https://tribune.com.pk/feed/latest',
     'https://tribune.com.pk/feed/pakistan',
+    'https://tribune.com.pk/feed/business',
+    'https://tribune.com.pk/feed/technology',
+    'https://tribune.com.pk/feed/sports',
+    'https://tribune.com.pk/feed/world',
   ];
 
   for (const url of feedUrls) {
@@ -49,8 +53,10 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
           let category = 'Politics';
           const lowerCat = rawCategory.toLowerCase();
           const lowerTitle = title.toLowerCase();
+          const lowerUrl = url.toLowerCase();
 
           if (
+            lowerUrl.includes('business') ||
             lowerCat.includes('business') ||
             lowerCat.includes('economy') ||
             lowerTitle.includes('sbp') ||
@@ -58,25 +64,35 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
             lowerTitle.includes('rupee') ||
             lowerTitle.includes('market')
           ) {
-            category = 'Business';
+            category = 'Business & Economy';
           } else if (
+            lowerUrl.includes('technology') ||
             lowerCat.includes('tech') ||
             lowerTitle.includes('tech') ||
             lowerTitle.includes('ai') ||
             lowerTitle.includes('digital')
           ) {
-            category = 'Tech';
+            category = 'Technology & AI';
           } else if (
+            lowerUrl.includes('sports') ||
             lowerCat.includes('sports') ||
             lowerTitle.includes('cricket') ||
             lowerTitle.includes('match') ||
             lowerTitle.includes('pcb')
           ) {
             category = 'Sports';
-          } else if (lowerCat.includes('life') || lowerCat.includes('entertainment')) {
+          } else if (lowerCat.includes('life') || lowerCat.includes('entertainment') || lowerTitle.includes('drama') || lowerTitle.includes('film')) {
             category = 'Entertainment';
-          } else if (lowerCat.includes('world') || lowerCat.includes('international')) {
+          } else if (lowerUrl.includes('world') || lowerCat.includes('world') || lowerCat.includes('international')) {
             category = 'World';
+          } else if (lowerTitle.includes('health') || lowerTitle.includes('polio') || lowerTitle.includes('hospital')) {
+            category = 'Health';
+          } else if (lowerTitle.includes('climate') || lowerTitle.includes('smog') || lowerTitle.includes('flood') || lowerTitle.includes('environment')) {
+            category = 'Environment & Climate';
+          } else if (lowerTitle.includes('school') || lowerTitle.includes('university') || lowerTitle.includes('education')) {
+            category = 'Education';
+          } else if (lowerTitle.includes('science') || lowerTitle.includes('space')) {
+            category = 'Science';
           }
 
           articles.push({

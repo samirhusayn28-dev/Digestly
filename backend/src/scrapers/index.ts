@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { scrapeDawnNews } from './dawn.js';
 import { scrapeTribuneNews } from './tribune.js';
 import { scrapeGeoNews } from './geo.js';
+import { scrapeInternationalNews } from './international.js';
 import { summarizeAndCategorizeArticle } from '../services/groq.js';
 import { saveArticlesToFirestore } from '../services/firebase-admin.js';
 import { sendBreakingNewsPushNotifications } from '../services/push.js';
@@ -54,11 +55,12 @@ export async function runScrapingPipeline(): Promise<{
 }> {
   console.log('--- Starting Digestly Scraping Pipeline ---');
 
-  // Step 1: Scrape all 3 publications in parallel
-  const [dawnResult, tribuneResult, geoResult] = await Promise.allSettled([
+  // Step 1: Scrape all national and international publications in parallel
+  const [dawnResult, tribuneResult, geoResult, intlResult] = await Promise.allSettled([
     scrapeDawnNews(),
     scrapeTribuneNews(),
     scrapeGeoNews(),
+    scrapeInternationalNews(),
   ]);
 
   const rawArticles: ScrapedRawArticle[] = [];
@@ -82,6 +84,13 @@ export async function runScrapingPipeline(): Promise<{
     console.log(`Scraped ${geoResult.value.length} articles from Geo News`);
   } else {
     console.warn('Geo scraper failed:', geoResult.reason);
+  }
+
+  if (intlResult.status === 'fulfilled') {
+    rawArticles.push(...intlResult.value);
+    console.log(`Scraped ${intlResult.value.length} articles from BBC World & Al Jazeera`);
+  } else {
+    console.warn('International scraper failed:', intlResult.reason);
   }
 
   console.log(`Total raw articles collected: ${rawArticles.length}`);
@@ -116,8 +125,8 @@ export async function runScrapingPipeline(): Promise<{
   // Step 3: Summarize via Groq API (or smart fallback) and format
   const processedArticles: ProcessedArticle[] = [];
 
-  // Limit batch size per run to avoid rate limits (top 15 articles)
-  const batchToProcess = rawArticles.slice(0, 15);
+  // Process top 25-28 stories per run for comprehensive multi-category coverage
+  const batchToProcess = rawArticles.slice(0, 28);
 
   for (const raw of batchToProcess) {
     try {

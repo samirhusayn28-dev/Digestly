@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "331798617464-n12jcph1mqhphc2l7opivq7ktnfklqio.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.digestly.app",
+            "certificate_hash": "c58e0970aaa471927e6989dd3f0f32ec4962a0e2"
+          }
+        },
+        {
           "client_id": "331798617464-6pi4bt4ugdkt2q2vvcd39t493qive0gd.apps.googleusercontent.com",
           "client_type": 3
         }
