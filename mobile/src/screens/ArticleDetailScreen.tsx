@@ -662,8 +662,6 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               >
                 {item}
               </Text>
-
-              <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} style={styles.takeawayChevron} />
             </View>
           ))}
         </View>
@@ -1038,9 +1036,6 @@ const styles = StyleSheet.create({
   takeawayText: {
     flex: 1,
     fontWeight: '500',
-  },
-  takeawayChevron: {
-    marginLeft: 8,
   },
   perspectivesSection: {
     marginHorizontal: 16,

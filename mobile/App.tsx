@@ -19,12 +19,39 @@ import {
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useTheme } from './src/theme';
 
+import { useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, syncUserProfileToFirestore } from './src/services/firebase';
+import { useAppStore } from './src/store/useAppStore';
+
 function AppContent() {
-  const { isDark, colors } = useTheme();
+  const { colors } = useTheme();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        console.log('[AppAuth] Firebase session detected for user:', firebaseUser.uid);
+        try {
+          const profile = await syncUserProfileToFirestore({
+            uid: firebaseUser.uid,
+            displayName: firebaseUser.displayName,
+            email: firebaseUser.email,
+            photoURL: firebaseUser.photoURL,
+          });
+          useAppStore.getState().setUser(profile);
+          useAppStore.getState().setIsGuest(false);
+        } catch (e) {
+          console.warn('[AppAuth] Could not sync Firestore profile:', e);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <NavigationContainer>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="light" />
       <RootNavigator />
     </NavigationContainer>
   );

@@ -57,8 +57,6 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const { colors, typography, isDark } = useTheme();
 
-  const themeMode = useAppStore((state) => state.themeMode);
-  const setThemeMode = useAppStore((state) => state.setThemeMode);
   const user = useAppStore((state) => state.user);
   const setUser = useAppStore((state) => state.setUser);
   const isGuest = useAppStore((state) => state.isGuest);
@@ -110,19 +108,25 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleTestNotification = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await scheduleBreakingNewsNotification(
-      'SBP maintains policy rate at 11%',
-      'Inflation reaches target band as currency stabilizes at 278/USD.',
-      'Business & Economy',
-      notificationPrefs
-    );
-    Alert.alert(
-      'Breaking Alert Triggered',
-      'A test notification has been scheduled. Check your device banner or notification shade.',
-      [{ text: 'OK' }]
-    );
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  const handleToggleNotifications = async (enabled: boolean) => {
+    Haptics.selectionAsync();
+    setNotificationsEnabled(enabled);
+    if (enabled) {
+      const token = await registerForPushNotificationsAsync(user?.uid);
+      if (token && user) {
+        syncUserProfileToFirestore(user, selectedInterests, {
+          ...notificationPrefs,
+          notificationsEnabled: true,
+        }).catch((e) => console.warn('Could not sync push notification pref:', e));
+      }
+    } else if (user) {
+      syncUserProfileToFirestore(user, selectedInterests, {
+        ...notificationPrefs,
+        notificationsEnabled: false,
+      }).catch((e) => console.warn('Could not sync push notification pref:', e));
+    }
   };
 
   const handleLogout = () => {
@@ -444,47 +448,29 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
             SYSTEM & ALERTS
           </Text>
 
-          {/* Dark Mode Toggle */}
-          <View style={[styles.clickableRow, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 10 }]}>
+          {/* Simple Notifications On/Off Toggle */}
+          <View style={[styles.clickableRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.clickableRowLeft}>
-              <View style={[styles.prefIconBox, { backgroundColor: isDark ? '#182030' : '#F1F5F9' }]}>
-                <Ionicons name={isDark ? 'moon' : 'sunny'} size={18} color={isDark ? '#38BDF8' : '#F59E0B'} />
+              <View style={[styles.prefIconBox, { backgroundColor: '#182030' }]}>
+                <Ionicons name="notifications-outline" size={18} color="#38BDF8" />
               </View>
               <View>
                 <Text style={[styles.prefTitle, { color: colors.textPrimary }]}>
-                  Dark Mode
+                  Notifications
                 </Text>
                 <Text style={[styles.prefSubtitle, { color: colors.textTertiary }]}>
-                  High contrast tuned for night reading
+                  Real-time alerts when new digests are published
                 </Text>
               </View>
             </View>
 
             <Switch
-              value={isDark}
-              onValueChange={(val) => {
-                Haptics.selectionAsync();
-                setThemeMode(val ? 'dark' : 'light');
-              }}
-              trackColor={{ false: isDark ? '#1E2638' : '#E2E8F0', true: isDark ? '#F8FAFC' : '#0F172A' }}
-              thumbColor={isDark ? '#07090E' : '#FFFFFF'}
+              value={notificationsEnabled}
+              onValueChange={handleToggleNotifications}
+              trackColor={{ false: '#1E2638', true: '#38BDF8' }}
+              thumbColor={notificationsEnabled ? '#FFFFFF' : '#64748B'}
             />
           </View>
-
-          {/* Trigger Test Breaking Alert Button */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleTestNotification}
-            style={[styles.testAlertBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          >
-            <View style={styles.testAlertLeft}>
-              <Ionicons name="notifications-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
-              <Text style={[styles.testAlertText, { color: colors.textPrimary }]}>
-                Trigger Test Breaking Alert
-              </Text>
-            </View>
-            <Ionicons name="flash-outline" size={15} color="#EF4444" />
-          </TouchableOpacity>
         </View>
 
         {/* SECTION 4: RESET / LOGOUT */}
@@ -770,23 +756,6 @@ const styles = StyleSheet.create({
     marginRight: 11,
   },
   categoryLabel: {
-    fontSize: 13.5,
-    fontWeight: '600',
-  },
-  testAlertBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  testAlertLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  testAlertText: {
     fontSize: 13.5,
     fontWeight: '600',
   },

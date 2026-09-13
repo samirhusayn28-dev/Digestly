@@ -15,6 +15,18 @@ export async function scrapeInternationalNews(): Promise<ScrapedRawArticle[]> {
       sourceName: 'Al Jazeera',
       url: 'https://www.aljazeera.com/xml/rss/all.xml',
     },
+    {
+      sourceName: 'Reuters',
+      url: 'https://news.google.com/rss/search?q=source:Reuters+when:1d&hl=en-US&gl=US&ceid=US:en',
+    },
+    {
+      sourceName: 'Associated Press',
+      url: 'https://news.google.com/rss/search?q=source:%22Associated+Press%22+when:1d&hl=en-US&gl=US&ceid=US:en',
+    },
+    {
+      sourceName: 'CNN',
+      url: 'http://rss.cnn.com/rss/edition_world.rss',
+    },
   ];
 
   for (const feed of feeds) {

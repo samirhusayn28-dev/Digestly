@@ -13,12 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 import { ResponseType } from 'expo-auth-session';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { RootStackParamList } from '../navigation/types';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, UserProfile } from '../store/useAppStore';
 import {
   GOOGLE_CONFIG,
   signInWithGoogleTokens,
@@ -53,42 +54,74 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     responseType: ResponseType.Code,
   });
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token, access_token } = response.params;
-      handleFirebaseAuthWithGoogle(id_token, access_token);
-    } else if (response?.type === 'error') {
-      setLoading(false);
-      setErrorMessage(response.error?.message || 'Google Sign-In could not complete. You can continue as a Guest.');
-    } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
-      setLoading(false);
-    }
-  }, [response]);
-
-  const handleFirebaseAuthWithGoogle = async (idToken?: string, accessToken?: string) => {
+  const completeUserSignIn = async (idToken?: string, accessToken?: string) => {
     try {
       setLoading(true);
       setErrorMessage(null);
-      const firebaseUser = await signInWithGoogleTokens(idToken, accessToken);
+      console.log('[GoogleAuth] Completing user sign in... idToken present:', !!idToken, 'accessToken present:', !!accessToken);
 
-      const profile = await syncUserProfileToFirestore({
-        uid: firebaseUser.uid,
-        displayName: firebaseUser.displayName,
-        email: firebaseUser.email,
-        photoURL: firebaseUser.photoURL,
-      });
+      let signedInProfile: UserProfile | null = null;
 
-      setUser(profile);
-      setIsGuest(false);
-      setHasCompletedOnboarding(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.replace('Interests');
+      // 1. Attempt Firebase Auth sign-in with Google Credential
+      if (idToken || accessToken) {
+        try {
+          console.log('[GoogleAuth] Calling signInWithGoogleTokens in Firebase...');
+          const firebaseUser = await signInWithGoogleTokens(idToken, accessToken);
+          console.log('[GoogleAuth] Firebase auth succeeded! User UID:', firebaseUser.uid);
+
+          signedInProfile = await syncUserProfileToFirestore({
+            uid: firebaseUser.uid,
+            displayName: firebaseUser.displayName,
+            email: firebaseUser.email,
+            photoURL: firebaseUser.photoURL,
+          });
+          console.log('[GoogleAuth] Synced Firestore profile:', signedInProfile.displayName, signedInProfile.email);
+        } catch (fbErr: any) {
+          console.warn('[GoogleAuth] Firebase signInWithGoogleTokens error:', fbErr?.message || fbErr);
+        }
+      }
+
+      // 2. Fallback: Directly fetch Google user info if Firebase sign-in did not return profile
+      if (!signedInProfile && accessToken) {
+        try {
+          console.log('[GoogleAuth] Fetching user info directly from Google OAuth API...');
+          const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (userInfoRes.ok) {
+            const googleData = await userInfoRes.json();
+            console.log('[GoogleAuth] Retrieved Google profile data:', googleData.email);
+            signedInProfile = {
+              uid: googleData.sub || `google_${Date.now()}`,
+              displayName: googleData.name || googleData.given_name || 'Google Reader',
+              email: googleData.email || null,
+              photoURL: googleData.picture || null,
+              interests: ['Top Stories', 'Politics', 'Tech', 'Business'],
+              notificationPrefs: { breaking: true, politics: true, tech: true },
+            };
+          } else {
+            const errBody = await userInfoRes.text();
+            console.warn('[GoogleAuth] Google userinfo returned status', userInfoRes.status, errBody);
+          }
+        } catch (fetchErr: any) {
+          console.warn('[GoogleAuth] Error fetching Google userinfo:', fetchErr);
+        }
+      }
+
+      if (signedInProfile) {
+        console.log('[GoogleAuth] User is now registered as logged in! Updating store and navigating to MainTabs...');
+        setUser(signedInProfile);
+        setIsGuest(false);
+        setHasCompletedOnboarding(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        navigation.replace('MainTabs');
+      } else {
+        throw new Error('Could not retrieve credentials from Google. Please try again or continue as Guest.');
+      }
     } catch (err: any) {
-      console.warn('Firebase Google Auth Error:', err);
-      setErrorMessage('Signed in with Google. Navigating to news...');
-      setIsGuest(true);
-      setHasCompletedOnboarding(true);
-      setTimeout(() => navigation.replace('MainTabs'), 500);
+      console.error('[GoogleAuth] Login failed with error:', err);
+      setErrorMessage(err.message || 'Google Sign-In could not complete. You can continue as Guest.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
     }
@@ -98,21 +131,78 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     setErrorMessage(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    console.log('[GoogleAuth] Starting Google Sign-In prompt...');
 
     try {
-      const res = await promptAsync();
-      if (res?.type === 'success') {
-        const { id_token, access_token } = res.params;
-        await handleFirebaseAuthWithGoogle(id_token, access_token);
-      } else if (res?.type === 'error') {
+      const authResult = await promptAsync();
+      console.log('[GoogleAuth] promptAsync returned result type:', authResult?.type);
+
+      if (authResult?.type === 'success') {
+        const { code, id_token: paramIdToken, access_token: paramAccessToken } = authResult.params;
+        let idToken: string | undefined = paramIdToken;
+        let accessToken: string | undefined = paramAccessToken;
+
+        if (!idToken && !accessToken && code) {
+          console.log('[GoogleAuth] Authorization code received. Exchanging for tokens...');
+          try {
+            const tokenResponse = await AuthSession.exchangeCodeAsync(
+              {
+                clientId: GOOGLE_MOBILE_CLIENT_ID,
+                code,
+                redirectUri: GOOGLE_MOBILE_REDIRECT_URI,
+                extraParams: {
+                  code_verifier: request?.codeVerifier || '',
+                },
+              },
+              {
+                tokenEndpoint: 'https://oauth2.googleapis.com/token',
+              }
+            );
+            idToken = tokenResponse.idToken;
+            accessToken = tokenResponse.accessToken;
+            console.log('[GoogleAuth] Token exchange succeeded! idToken:', !!idToken, 'accessToken:', !!accessToken);
+          } catch (exchangeErr: any) {
+            console.warn('[GoogleAuth] AuthSession.exchangeCodeAsync failed, attempting direct POST:', exchangeErr);
+            const tokenParams = new URLSearchParams({
+              client_id: GOOGLE_MOBILE_CLIENT_ID,
+              code,
+              grant_type: 'authorization_code',
+              redirect_uri: GOOGLE_MOBILE_REDIRECT_URI,
+              code_verifier: request?.codeVerifier || '',
+            });
+            const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: tokenParams.toString(),
+            });
+            const tokenData = await tokenRes.json();
+            if (tokenData.id_token || tokenData.access_token) {
+              idToken = tokenData.id_token;
+              accessToken = tokenData.access_token;
+              console.log('[GoogleAuth] Direct token exchange succeeded!');
+            } else {
+              console.error('[GoogleAuth] Direct token exchange error:', tokenData);
+              throw new Error(tokenData.error_description || tokenData.error || 'Failed to exchange authorization code');
+            }
+          }
+        }
+
+        await completeUserSignIn(idToken, accessToken);
+      } else if (authResult?.type === 'cancel' || authResult?.type === 'dismiss') {
+        console.log('[GoogleAuth] User cancelled or dismissed Google Sign-In.');
         setLoading(false);
-        setErrorMessage('Google Sign-In could not complete. Tap Continue as Guest below.');
+      } else if (authResult?.type === 'error') {
+        const msg = authResult.error?.message || 'Google Sign-In encountered an error.';
+        console.warn('[GoogleAuth] AuthResult error:', msg);
+        setErrorMessage(msg);
+        setLoading(false);
       } else {
         setLoading(false);
       }
     } catch (err: any) {
+      console.error('[GoogleAuth] Exception during handleGoogleSignIn:', err);
+      setErrorMessage(err.message || 'Could not complete Google Sign-In. Please try again.');
       setLoading(false);
-      setErrorMessage('Could not launch Google Sign In. Tap Continue as Guest below.');
     }
   };
 

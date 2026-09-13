@@ -52,7 +52,7 @@ const AnimatedTabIcon: React.FC<AnimatedTabIconProps> = ({ focused, name, color,
 };
 
 export const TabNavigator: React.FC = () => {
-  const { colors, typography, isDark } = useTheme();
+  const { colors, typography } = useTheme();
   const insets = useSafeAreaInsets();
 
   const bottomFloat = Math.max(insets.bottom, 12);
@@ -65,27 +65,27 @@ export const TabNavigator: React.FC = () => {
         tabBarStyle: {
           position: 'absolute',
           bottom: bottomFloat,
-          left: 28,
-          right: 28,
-          height: 54,
-          borderRadius: 27,
-          backgroundColor: isDark ? 'rgba(17, 22, 34, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          left: 40,
+          right: 40,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: 'rgba(13, 17, 26, 0.96)',
           borderWidth: 1,
-          borderColor: isDark ? '#1E2638' : '#E2E8F0',
-          paddingTop: 6,
-          paddingBottom: 6,
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+          paddingTop: 5,
+          paddingBottom: 5,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: isDark ? 0.35 : 0.08,
-          shadowRadius: 10,
-          elevation: 6,
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.45,
+          shadowRadius: 12,
+          elevation: 8,
         },
-        tabBarActiveTintColor: colors.tabBarActive,
-        tabBarInactiveTintColor: colors.tabBarInactive,
+        tabBarActiveTintColor: '#38BDF8',
+        tabBarInactiveTintColor: '#64748B',
         tabBarLabelStyle: {
           fontFamily: typography.badge.fontFamily,
-          fontSize: 9.5,
-          fontWeight: '700',
+          fontSize: 9,
+          fontWeight: '600',
           letterSpacing: 0.2,
           marginTop: -2,
         },
@@ -93,13 +93,13 @@ export const TabNavigator: React.FC = () => {
           let iconName: keyof typeof Ionicons.glyphMap = 'newspaper-outline';
 
           if (route.name === 'Feed') {
-            iconName = focused ? 'newspaper' : 'newspaper-outline';
+            iconName = 'newspaper-outline';
           } else if (route.name === 'Discover') {
-            iconName = focused ? 'compass' : 'compass-outline';
+            iconName = 'compass-outline';
           } else if (route.name === 'Bookmarks') {
-            iconName = focused ? 'bookmark' : 'bookmark-outline';
+            iconName = 'bookmark-outline';
           } else if (route.name === 'Settings') {
-            iconName = focused ? 'settings' : 'settings-outline';
+            iconName = 'settings-outline';
           }
 
           return (
@@ -107,7 +107,7 @@ export const TabNavigator: React.FC = () => {
               focused={focused}
               name={iconName}
               color={color}
-              dotColor={isDark ? '#38BDF8' : '#0F172A'}
+              dotColor="#38BDF8"
             />
           );
         },

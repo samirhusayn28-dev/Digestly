@@ -3,6 +3,7 @@ import { scrapeDawnNews } from './dawn.js';
 import { scrapeTribuneNews } from './tribune.js';
 import { scrapeGeoNews } from './geo.js';
 import { scrapeInternationalNews } from './international.js';
+import { scrapeExpandedPakistanNews } from './pakistanNews.js';
 import { summarizeAndCategorizeArticle } from '../services/groq.js';
 import { saveArticlesToFirestore } from '../services/firebase-admin.js';
 import { sendBreakingNewsPushNotifications } from '../services/push.js';
@@ -18,17 +19,15 @@ function generateArticleId(sourceName: string, title: string): string {
 function getKeywords(title: string): Set<string> {
   const stopWords = new Set([
     'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'he',
-    'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the', 'to', 'was', 'were',
-    'will', 'with', 'pakistan', 'news', 'says', 'after', 'over', 'new', 'more'
+    'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the', 'to', 'was', 'were', 'will', 'with'
   ]);
-
-  const words = title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 3 && !stopWords.has(w));
-
-  return new Set(words);
+  return new Set(
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 3 && !stopWords.has(w))
+  );
 }
 
 // Check if two articles from different sources cover the same story
@@ -56,11 +55,12 @@ export async function runScrapingPipeline(): Promise<{
   console.log('--- Starting Digestly Scraping Pipeline ---');
 
   // Step 1: Scrape all national and international publications in parallel
-  const [dawnResult, tribuneResult, geoResult, intlResult] = await Promise.allSettled([
+  const [dawnResult, tribuneResult, geoResult, intlResult, pakNewsResult] = await Promise.allSettled([
     scrapeDawnNews(),
     scrapeTribuneNews(),
     scrapeGeoNews(),
     scrapeInternationalNews(),
+    scrapeExpandedPakistanNews(),
   ]);
 
   const rawArticles: ScrapedRawArticle[] = [];
@@ -88,9 +88,16 @@ export async function runScrapingPipeline(): Promise<{
 
   if (intlResult.status === 'fulfilled') {
     rawArticles.push(...intlResult.value);
-    console.log(`Scraped ${intlResult.value.length} articles from BBC World & Al Jazeera`);
+    console.log(`Scraped ${intlResult.value.length} articles from International Outlets`);
   } else {
     console.warn('International scraper failed:', intlResult.reason);
+  }
+
+  if (pakNewsResult.status === 'fulfilled') {
+    rawArticles.push(...pakNewsResult.value);
+    console.log(`Scraped ${pakNewsResult.value.length} articles from Expanded Pakistani Outlets`);
+  } else {
+    console.warn('Expanded Pakistan scraper failed:', pakNewsResult.reason);
   }
 
   console.log(`Total raw articles collected: ${rawArticles.length}`);

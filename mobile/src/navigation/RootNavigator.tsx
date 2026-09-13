@@ -9,14 +9,21 @@ import { TabNavigator } from './TabNavigator';
 import { ArticleDetailScreen } from '../screens/ArticleDetailScreen';
 import { useTheme } from '../theme';
 
+import { useAppStore } from '../store/useAppStore';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator: React.FC = () => {
   const { colors } = useTheme();
+  const hasCompletedOnboarding = useAppStore((state) => state.hasCompletedOnboarding);
+  const user = useAppStore((state) => state.user);
+  const isGuest = useAppStore((state) => state.isGuest);
+
+  const isReturningUser = hasCompletedOnboarding || !!user || isGuest;
 
   return (
     <Stack.Navigator
-      initialRouteName="Splash"
+      initialRouteName={isReturningUser ? 'MainTabs' : 'Splash'}
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },

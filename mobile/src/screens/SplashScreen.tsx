@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,10 +24,8 @@ interface SplashSlide {
   imageUri: string;
   headlineLine1: string;
   headlineAccent: string;
-  bodyText: string;
-  captionIcon: keyof typeof Ionicons.glyphMap;
-  captionText: string;
   accentColor: string;
+  bodyText: string;
 }
 
 const SPLASH_SLIDES: SplashSlide[] = [
@@ -35,34 +33,28 @@ const SPLASH_SLIDES: SplashSlide[] = [
     id: '1',
     imageUri:
       'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80',
-    headlineLine1: 'The whole story in',
-    headlineAccent: 'three essential lines.',
-    bodyText: "Direct, objective news briefs synthesised by AI from Pakistan's most trusted editorial desks.",
-    captionIcon: 'document-text-outline',
-    captionText: 'Concise, verified 3-bullet executive briefs.',
+    headlineLine1: 'Essential news,',
+    headlineAccent: 'distilled in seconds.',
     accentColor: '#38BDF8',
+    bodyText: "Objective 3-sentence briefings synthesised from Pakistan's most respected editorial desks.",
   },
   {
     id: '2',
     imageUri:
       'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&q=80',
-    headlineLine1: 'See beyond a',
-    headlineAccent: 'single headline.',
-    bodyText: 'Cross-referenced reporting from Dawn, Express Tribune, Geo News, BBC World, and Al Jazeera.',
-    captionIcon: 'scale-outline',
-    captionText: 'Balanced viewpoints and multiple editorial angles.',
+    headlineLine1: 'Every perspective,',
+    headlineAccent: 'without the noise.',
     accentColor: '#34D399',
+    bodyText: 'Cross-referenced coverage comparing Dawn, Express Tribune, Geo News, and global publishers.',
   },
   {
     id: '3',
     imageUri:
       'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
-    headlineLine1: 'Your nation, your',
-    headlineAccent: 'personalized focus.',
-    bodyText: 'Select your interests and stay ahead of breaking political, economic, and global developments.',
-    captionIcon: 'options-outline',
-    captionText: 'Tailored intelligence across 10 curated categories.',
+    headlineLine1: 'Stay ahead of what',
+    headlineAccent: 'actually matters.',
     accentColor: '#FBBF24',
+    bodyText: 'Curated intelligence across business, politics, technology, and global affairs.',
   },
 ];
 
@@ -74,6 +66,15 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
   const user = useAppStore((state) => state.user);
   const isGuest = useAppStore((state) => state.isGuest);
+  const hasCompletedOnboarding = useAppStore((state) => state.hasCompletedOnboarding);
+  const setHasCompletedOnboarding = useAppStore((state) => state.setHasCompletedOnboarding);
+
+  // Skip splash if user already logged in or completed onboarding
+  useEffect(() => {
+    if (hasCompletedOnboarding || user || isGuest) {
+      navigation.replace('MainTabs');
+    }
+  }, [hasCompletedOnboarding, user, isGuest]);
 
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -86,6 +87,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
   const finishSplash = () => {
     Haptics.selectionAsync();
+    setHasCompletedOnboarding(true);
     if (user || isGuest) {
       navigation.replace('MainTabs');
     } else {
@@ -100,7 +102,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         style={styles.backgroundImage}
         resizeMode="cover"
       >
-        {/* Dark gradient vignettes for editorial contrast */}
+        {/* Deep dark gradient overlays for minimal contrast */}
         <View style={styles.topVignette} />
         <View style={styles.bottomVignette} />
 
@@ -108,25 +110,17 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         <View
           style={[
             styles.slideContent,
-            { paddingBottom: insets.bottom + 105, paddingHorizontal: 26 },
+            { paddingBottom: insets.bottom + 96, paddingHorizontal: 28 },
           ]}
         >
-          {/* Large bold headline with accent color on second line */}
+          {/* Bold two-line headline with accent colored phrase */}
           <Text style={styles.headlineLine1}>{item.headlineLine1}</Text>
           <Text style={[styles.headlineAccent, { color: item.accentColor }]}>
             {item.headlineAccent}
           </Text>
 
-          {/* Short body text */}
+          {/* Clean one-line muted gray supporting text */}
           <Text style={styles.bodyText}>{item.bodyText}</Text>
-
-          {/* Icon + caption row */}
-          <View style={styles.captionRow}>
-            <View style={styles.captionIconWrap}>
-              <Ionicons name={item.captionIcon} size={15} color="#FFFFFF" />
-            </View>
-            <Text style={styles.captionText}>{item.captionText}</Text>
-          </View>
         </View>
       </ImageBackground>
     </View>
@@ -136,17 +130,17 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Top Bar: Digestly Wordmark (no square D icon) + Skip Link */}
+      {/* Minimal Top Header */}
       <View
         style={[
           styles.topHeader,
           {
-            top: insets.top + 10,
-            paddingHorizontal: 24,
+            top: insets.top + 12,
+            paddingHorizontal: 28,
           },
         ]}
       >
-        <DigestlyWordmark size="lg" color="#FFFFFF" />
+        <DigestlyWordmark size="md" color="#FFFFFF" />
 
         <TouchableOpacity
           activeOpacity={0.7}
@@ -174,17 +168,17 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         bounces={false}
       />
 
-      {/* Bottom Controls Bar: 3 Dots + Circular White Arrow */}
+      {/* Bottom Controls: Minimal dots + circular white arrow */}
       <View
         style={[
           styles.bottomControls,
           {
             bottom: insets.bottom + 26,
-            paddingHorizontal: 26,
+            paddingHorizontal: 28,
           },
         ]}
       >
-        {/* 3-dot slide indicator */}
+        {/* Pagination Dots */}
         <View style={styles.dotsContainer}>
           {SPLASH_SLIDES.map((_, idx) => (
             <View
@@ -197,7 +191,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Circular White Button with Arrow */}
+        {/* Circular Next Button */}
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={handleNext}
@@ -283,30 +277,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   bodyText: {
-    fontSize: 14.5,
+    fontSize: 15,
     lineHeight: 22,
-    color: '#CBD5E1',
-    marginBottom: 16,
+    color: '#94A3B8',
     letterSpacing: -0.1,
-  },
-  captionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(17, 22, 34, 0.65)',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  captionIconWrap: {
-    marginRight: 8,
-  },
-  captionText: {
-    fontSize: 12.5,
-    color: '#E2E8F0',
-    fontWeight: '500',
   },
   bottomControls: {
     position: 'absolute',

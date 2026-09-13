@@ -2,7 +2,7 @@
   "expo": {
     "name": "Digestly",
     "slug": "digestly",
-    "version": "1.0.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": ["digestly", "com.googleusercontent.apps.331798617464-q6l7vvrdml02as6buf5nsp2sh7i1le4d", "com.googleusercontent.apps.331798617464-n12jcph1mqhphc2l7opivq7ktnfklqio"],
@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.digestly.app",
+      "versionCode": 4,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",

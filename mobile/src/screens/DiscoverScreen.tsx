@@ -28,13 +28,44 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const CATEGORY_ICONS = [
-  { id: 'All', label: 'All', icon: 'sparkles-outline' as const },
-  { id: 'Politics', label: 'Politics', icon: 'megaphone-outline' as const },
-  { id: 'Business & Economy', label: 'Business', icon: 'trending-up-outline' as const },
-  { id: 'Technology & AI', label: 'Tech', icon: 'hardware-chip-outline' as const },
-  { id: 'Sports', label: 'Sports', icon: 'football-outline' as const },
-  { id: 'World', label: 'World', icon: 'globe-outline' as const },
+const ALL_CATEGORIES = [
+  'All',
+  'Politics',
+  'Business & Economy',
+  'Technology & AI',
+  'Sports',
+  'World',
+  'Health',
+  'Entertainment',
+  'Education',
+  'Environment & Climate',
+  'Science',
+];
+
+interface SourceOption {
+  id: string;
+  label: string;
+}
+
+const ALL_SOURCES: SourceOption[] = [
+  { id: 'all', label: 'All Sources' },
+  { id: 'Dawn', label: 'Dawn' },
+  { id: 'Tribune', label: 'Express Tribune' },
+  { id: 'Geo News', label: 'Geo News' },
+  { id: 'The News', label: 'The News' },
+  { id: 'Business Recorder', label: 'Business Recorder' },
+  { id: 'ARY News', label: 'ARY News' },
+  { id: 'Samaa TV', label: 'Samaa TV' },
+  { id: 'Dunya News', label: 'Dunya News' },
+  { id: '92 News', label: '92 News' },
+  { id: 'Pakistan Today', label: 'Pakistan Today' },
+  { id: 'Daily Times', label: 'Daily Times' },
+  { id: 'The Nation', label: 'The Nation' },
+  { id: 'BBC World', label: 'BBC World' },
+  { id: 'Al Jazeera', label: 'Al Jazeera' },
+  { id: 'Reuters', label: 'Reuters' },
+  { id: 'Associated Press', label: 'Associated Press' },
+  { id: 'CNN', label: 'CNN' },
 ];
 
 const TRENDING_TOPICS = [
@@ -42,21 +73,6 @@ const TRENDING_TOPICS = [
   { tag: '#ChampionsTrophy', reads: '28.5k reads', category: 'Sports' },
   { tag: '#TechExports', reads: '9.8k reads', category: 'Technology & AI' },
   { tag: '#ElectoralReform', reads: '11.4k reads', category: 'Politics' },
-];
-
-interface SourceFilterItem {
-  id: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}
-
-const SOURCE_FILTERS: SourceFilterItem[] = [
-  { id: 'all', label: 'All Sources', icon: 'globe-outline' },
-  { id: 'Dawn', label: 'Dawn', icon: 'newspaper-outline' },
-  { id: 'Tribune', label: 'Tribune', icon: 'newspaper-outline' },
-  { id: 'Geo News', label: 'Geo News', icon: 'tv-outline' },
-  { id: 'BBC World', label: 'BBC World', icon: 'radio-outline' },
-  { id: 'Al Jazeera', label: 'Al Jazeera', icon: 'earth-outline' },
 ];
 
 export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -75,7 +91,6 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [sortBy, setSortBy] = useState<'latest' | 'multi' | 'breaking'>('latest');
   const [timeRange, setTimeRange] = useState<'all' | '24h' | '7d'>('all');
-  const [multiSources, setMultiSources] = useState<string[]>([]);
 
   const isTablet = width >= 768;
 
@@ -103,49 +118,63 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
     setSelectedCategory(cat);
   };
 
+  const hasActiveFilters =
+    selectedCategory !== 'All' ||
+    selectedSource !== 'all' ||
+    sortBy !== 'latest' ||
+    timeRange !== 'all';
+
   const filteredArticles = React.useMemo(() => {
     let list = articles.filter((item) => {
-      // Single source pill filter
+      // 1. Category Filter
+      if (selectedCategory !== 'All') {
+        const itemCat = item.category.toLowerCase().replace(/&/g, 'and').trim();
+        const selCat = selectedCategory.toLowerCase().replace(/&/g, 'and').trim();
+        if (!itemCat.includes(selCat) && !selCat.includes(itemCat)) return false;
+      }
+
+      // 2. Source Filter
       if (selectedSource !== 'all') {
-        const src = item.sourceName.toLowerCase();
-        let matches = false;
-        if (selectedSource === 'Dawn') matches = src.includes('dawn');
-        else if (selectedSource === 'Tribune') matches = src.includes('tribune');
-        else if (selectedSource === 'Geo News') matches = src.includes('geo');
-        else if (selectedSource === 'BBC World') matches = src.includes('bbc');
-        else if (selectedSource === 'Al Jazeera') matches = src.includes('jazeera');
-        else matches = src.includes(selectedSource.toLowerCase());
+        const itemSrc = item.sourceName.toLowerCase();
+        const targetSrc = selectedSource.toLowerCase();
+
+        const normItem = itemSrc.replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+        const normTarget = targetSrc.replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+
+        const matches =
+          itemSrc.includes(targetSrc) ||
+          targetSrc.includes(itemSrc) ||
+          normItem.includes(normTarget) ||
+          normTarget.includes(normItem);
+
         if (!matches) return false;
       }
 
-      // Multi-source selection from filter sheet
-      if (multiSources.length > 0) {
-        const src = item.sourceName.toLowerCase();
-        const matchesAny = multiSources.some((ms) => src.includes(ms.toLowerCase()));
-        if (!matchesAny) return false;
-      }
-
-      // Time range filter
+      // 3. Time range filter
       if (timeRange === '24h') {
         const pub = (item.publishedAt || '').toLowerCase();
         if (pub.includes('d ago') || pub.includes('w ago')) return false;
+      } else if (timeRange === '7d') {
+        const pub = (item.publishedAt || '').toLowerCase();
+        if (pub.includes('w ago') || pub.includes('m ago')) return false;
       }
 
-      // Search query filter
+      // 4. Search query filter
       const query = searchQuery.toLowerCase().trim();
       if (query) {
         const matchesQuery =
           item.title.toLowerCase().includes(query) ||
           item.sourceName.toLowerCase().includes(query) ||
           item.category.toLowerCase().includes(query) ||
-          (item.summary && item.summary.some((s) => s.toLowerCase().includes(query)));
+          (item.summary && item.summary.some((s) => s.toLowerCase().includes(query))) ||
+          (item.paragraphSummary && item.paragraphSummary.toLowerCase().includes(query));
         if (!matchesQuery) return false;
       }
 
       return true;
     });
 
-    // Sorting
+    // 5. Sorting
     if (sortBy === 'multi') {
       list = [...list].sort((a, b) => (b.relatedSources?.length || 0) - (a.relatedSources?.length || 0));
     } else if (sortBy === 'breaking') {
@@ -153,7 +182,7 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     return list;
-  }, [articles, selectedSource, multiSources, timeRange, searchQuery, sortBy]);
+  }, [articles, selectedCategory, selectedSource, timeRange, searchQuery, sortBy]);
 
   const highlightPair = filteredArticles.slice(0, 2);
   const restArticles = filteredArticles.slice(2);
@@ -198,94 +227,84 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setIsFilterModalVisible(true);
           }}
-          style={[styles.sliderFilterBtn, (multiSources.length > 0 || sortBy !== 'latest' || timeRange !== 'all') && { backgroundColor: '#38BDF8' }]}
+          style={[styles.sliderFilterBtn, hasActiveFilters && { backgroundColor: '#38BDF8' }]}
         >
           <Ionicons
             name="options-outline"
             size={20}
-            color={(multiSources.length > 0 || sortBy !== 'latest' || timeRange !== 'all') ? '#07090E' : '#F8FAFC'}
+            color={hasActiveFilters ? '#07090E' : '#F8FAFC'}
           />
         </TouchableOpacity>
       </View>
 
-      {/* Category Icons Row (6 Circles with Icons) */}
-      <View style={styles.categoryGridSection}>
-        <View style={styles.categoryIconRow}>
-          {CATEGORY_ICONS.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            return (
+      {/* Consolidated Active Filters Bar (Shown only when non-default filters are active) */}
+      {hasActiveFilters && (
+        <View style={styles.activeFiltersContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.activeFiltersScroll}
+          >
+            {selectedCategory !== 'All' && (
               <TouchableOpacity
-                key={cat.id}
-                onPress={() => handleCategoryPress(cat.id)}
-                style={styles.categoryIconItem}
-              >
-                <View
-                  style={[
-                    styles.categoryCircle,
-                    isSelected ? styles.categoryCircleActive : styles.categoryCircleInactive,
-                  ]}
-                >
-                  <Ionicons
-                    name={cat.icon}
-                    size={20}
-                    color={isSelected ? '#07090E' : '#94A3B8'}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.categoryIconLabel,
-                    isSelected ? styles.categoryIconLabelActive : styles.categoryIconLabelInactive,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Source Filter Control Row */}
-      <View style={styles.sourceFilterSection}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sourceFilterScroll}
-        >
-          {SOURCE_FILTERS.map((src) => {
-            const isSelected = selectedSource === src.id;
-            return (
-              <TouchableOpacity
-                key={src.id}
                 activeOpacity={0.8}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setSelectedSource(src.id);
-                }}
-                style={[
-                  styles.sourceChip,
-                  isSelected ? styles.sourceChipActive : styles.sourceChipInactive,
-                ]}
+                onPress={() => setSelectedCategory('All')}
+                style={styles.activeFilterPill}
               >
-                <Ionicons
-                  name={src.icon}
-                  size={12}
-                  color={isSelected ? '#07090E' : '#94A3B8'}
-                  style={{ marginRight: 5 }}
-                />
-                <Text
-                  style={[
-                    styles.sourceChipText,
-                    isSelected ? styles.sourceChipTextActive : styles.sourceChipTextInactive,
-                  ]}
-                >
-                  {src.label}
-                </Text>
+                <Text style={styles.activeFilterPillText}>Topic: {selectedCategory}</Text>
+                <Ionicons name="close" size={13} color="#38BDF8" style={{ marginLeft: 4 }} />
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+            )}
+
+            {selectedSource !== 'all' && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setSelectedSource('all')}
+                style={styles.activeFilterPill}
+              >
+                <Text style={styles.activeFilterPillText}>Source: {selectedSource}</Text>
+                <Ionicons name="close" size={13} color="#38BDF8" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            )}
+
+            {timeRange !== 'all' && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setTimeRange('all')}
+                style={styles.activeFilterPill}
+              >
+                <Text style={styles.activeFilterPillText}>Time: {timeRange === '24h' ? 'Past 24h' : 'Past 7d'}</Text>
+                <Ionicons name="close" size={13} color="#38BDF8" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            )}
+
+            {sortBy !== 'latest' && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setSortBy('latest')}
+                style={styles.activeFilterPill}
+              >
+                <Text style={styles.activeFilterPillText}>Sort: {sortBy === 'multi' ? 'Multi-Source' : 'Breaking'}</Text>
+                <Ionicons name="close" size={13} color="#38BDF8" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedCategory('All');
+                setSelectedSource('all');
+                setTimeRange('all');
+                setSortBy('latest');
+              }}
+              style={styles.clearAllFiltersBtn}
+            >
+              <Text style={styles.clearAllFiltersText}>Reset All</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -447,17 +466,78 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
               <TouchableOpacity
                 onPress={() => {
                   Haptics.selectionAsync();
+                  setSelectedCategory('All');
+                  setSelectedSource('all');
                   setSortBy('latest');
                   setTimeRange('all');
-                  setMultiSources([]);
                 }}
               >
                 <Text style={styles.modalResetText}>Reset All</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
-              {/* Section 1: Sort By */}
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
+              {/* Section 1: Category / Topic */}
+              <Text style={styles.modalSectionLabel}>CATEGORY / TOPIC</Text>
+              <View style={styles.modalChipRow}>
+                {ALL_CATEGORIES.map((cat) => {
+                  const isSelected = selectedCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedCategory(cat);
+                      }}
+                      style={[
+                        styles.modalOptionChip,
+                        isSelected ? styles.modalOptionChipActive : styles.modalOptionChipInactive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.modalOptionChipText,
+                          isSelected ? styles.modalOptionChipTextActive : styles.modalOptionChipTextInactive,
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Section 2: News Sources */}
+              <Text style={styles.modalSectionLabel}>NEWS SOURCE</Text>
+              <View style={styles.modalChipRow}>
+                {ALL_SOURCES.map((src) => {
+                  const isSelected = selectedSource === src.id;
+                  return (
+                    <TouchableOpacity
+                      key={src.id}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedSource(src.id);
+                      }}
+                      style={[
+                        styles.modalOptionChip,
+                        isSelected ? styles.modalOptionChipActive : styles.modalOptionChipInactive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.modalOptionChipText,
+                          isSelected ? styles.modalOptionChipTextActive : styles.modalOptionChipTextInactive,
+                        ]}
+                      >
+                        {src.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Section 3: Sort By */}
               <Text style={styles.modalSectionLabel}>SORT ORDER</Text>
               <View style={styles.modalChipRow}>
                 {[
@@ -494,7 +574,7 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
                 ))}
               </View>
 
-              {/* Section 2: Time Range */}
+              {/* Section 4: Time Range */}
               <Text style={styles.modalSectionLabel}>TIME RANGE</Text>
               <View style={styles.modalChipRow}>
                 {[
@@ -523,46 +603,6 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
                     </Text>
                   </TouchableOpacity>
                 ))}
-              </View>
-
-              {/* Section 3: Multi-Source Filter */}
-              <Text style={styles.modalSectionLabel}>ACTIVE SOURCES (MULTI-SELECT)</Text>
-              <View style={styles.modalChipRow}>
-                {['Dawn', 'Tribune', 'Geo News', 'BBC World', 'Al Jazeera'].map((src) => {
-                  const isChecked = multiSources.includes(src);
-                  return (
-                    <TouchableOpacity
-                      key={src}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        if (isChecked) {
-                          setMultiSources(multiSources.filter((s) => s !== src));
-                        } else {
-                          setMultiSources([...multiSources, src]);
-                        }
-                      }}
-                      style={[
-                        styles.modalOptionChip,
-                        isChecked ? styles.modalOptionChipActive : styles.modalOptionChipInactive,
-                      ]}
-                    >
-                      <Ionicons
-                        name={isChecked ? 'checkmark-circle' : 'add-circle-outline'}
-                        size={15}
-                        color={isChecked ? '#07090E' : '#94A3B8'}
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text
-                        style={[
-                          styles.modalOptionChipText,
-                          isChecked ? styles.modalOptionChipTextActive : styles.modalOptionChipTextInactive,
-                        ]}
-                      >
-                        {src}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
               </View>
             </ScrollView>
 
@@ -652,6 +692,42 @@ const styles = StyleSheet.create({
     borderColor: '#1E2638',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  activeFiltersContainer: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#151B27',
+  },
+  activeFiltersScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 16,
+  },
+  activeFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderColor: '#38BDF8',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  activeFilterPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#38BDF8',
+  },
+  clearAllFiltersBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  clearAllFiltersText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
   },
   categoryGridSection: {
     paddingVertical: 12,
