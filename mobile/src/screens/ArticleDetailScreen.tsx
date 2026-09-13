@@ -383,8 +383,6 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             transition={300}
           />
 
-          {/* Dark gradient shadow overlay for top bar readability */}
-          <View style={styles.heroOverlay} />
 
           {/* Top Bar Circular Buttons */}
           <View style={[styles.topBarRow, { top: insets.top + 8 }]}>
@@ -445,13 +443,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
           </View>
 
-          {/* Photo Count (Bottom-Right) */}
-          <View style={styles.photoCountPill}>
-            <Ionicons name="camera-outline" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-            <Text style={styles.photoCountText}>
-              1 / 5
-            </Text>
-          </View>
+
         </View>
 
         {/* ARTICLE HEADER & METADATA */}

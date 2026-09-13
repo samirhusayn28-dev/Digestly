@@ -21,7 +21,7 @@ import { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
 import { signOutCurrentUser, syncUserProfileToFirestore } from '../services/firebase';
-import { DigestlyLogo } from '../components/common/DigestlyLogo';
+import { DigestlyWordmark } from '../components/common/DigestlyWordmark';
 import {
   registerForPushNotificationsAsync,
   scheduleBreakingNewsNotification,
@@ -503,7 +503,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* SECTION 5: FOOTER ATTRIBUTION */}
         <View style={styles.footerContainer}>
-          <DigestlyLogo size="sm" />
+          <DigestlyWordmark size="md" />
           <Text style={[styles.appVersion, { color: colors.textPrimary }]}>
             DIGESTLY v1.3.0
           </Text>

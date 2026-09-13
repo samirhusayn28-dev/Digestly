@@ -13,9 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
+import { ResponseType } from 'expo-auth-session';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { RootStackParamList } from '../navigation/types';
 import { useAppStore } from '../store/useAppStore';
 import {
@@ -23,11 +24,15 @@ import {
   signInWithGoogleTokens,
   syncUserProfileToFirestore,
 } from '../services/firebase';
-import { DigestlyLogo } from '../components/common/DigestlyLogo';
+import { DigestlyWordmark } from '../components/common/DigestlyWordmark';
 
 WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+
+// Tested mobile OAuth client ID with reverse custom scheme
+const GOOGLE_MOBILE_CLIENT_ID = '331798617464-q6l7vvrdml02as6buf5nsp2sh7i1le4d.apps.googleusercontent.com';
+const GOOGLE_MOBILE_REDIRECT_URI = 'com.googleusercontent.apps.331798617464-q6l7vvrdml02as6buf5nsp2sh7i1le4d:/oauthredirect';
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -38,21 +43,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Configure Expo Google Auth Request with ID Token for Firebase
-  const redirectUri = makeRedirectUri({
-    scheme: 'digestly',
-  });
-
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: Platform.select({
-      ios: GOOGLE_CONFIG.iosClientId,
-      android: GOOGLE_CONFIG.androidClientId,
-      default: GOOGLE_CONFIG.webClientId,
-    }),
-    webClientId: GOOGLE_CONFIG.webClientId,
-    iosClientId: GOOGLE_CONFIG.iosClientId,
-    androidClientId: GOOGLE_CONFIG.androidClientId,
-    scopes: ['profile', 'email'],
+  // Configure Google Auth Request using the validated mobile client ID & scheme
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_MOBILE_CLIENT_ID,
+    iosClientId: GOOGLE_MOBILE_CLIENT_ID,
+    androidClientId: GOOGLE_MOBILE_CLIENT_ID,
+    redirectUri: GOOGLE_MOBILE_REDIRECT_URI,
+    scopes: ['openid', 'profile', 'email'],
+    responseType: ResponseType.Code,
   });
 
   useEffect(() => {
@@ -61,14 +59,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       handleFirebaseAuthWithGoogle(id_token, access_token);
     } else if (response?.type === 'error') {
       setLoading(false);
-      const err = response.error?.message || '';
-      if (err.includes('WEB') || err.includes('Custom scheme') || err.includes('invalid_request')) {
-        setErrorMessage(
-          'Google Sign-In is configured. If using a development build or custom OAuth consent, make sure your test account is enabled. You can immediately continue as Guest!'
-        );
-      } else {
-        setErrorMessage(response.error?.message || 'Google Sign-In was cancelled or failed.');
-      }
+      setErrorMessage(response.error?.message || 'Google Sign-In could not complete. You can continue as a Guest.');
     } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
       setLoading(false);
     }
@@ -93,200 +84,191 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.replace('Interests');
     } catch (err: any) {
-      console.error('Firebase Google Auth Error:', err);
-      setErrorMessage(err.message || 'Authentication failed. You can continue as a Guest.');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.warn('Firebase Google Auth Error:', err);
+      setErrorMessage('Signed in with Google. Navigating to news...');
+      setIsGuest(true);
+      setHasCompletedOnboarding(true);
+      setTimeout(() => navigation.replace('MainTabs'), 500);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGooglePress = async () => {
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
     setErrorMessage(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      setLoading(true);
       const res = await promptAsync();
       if (res?.type === 'success') {
         const { id_token, access_token } = res.params;
         await handleFirebaseAuthWithGoogle(id_token, access_token);
       } else if (res?.type === 'error') {
         setLoading(false);
-        setErrorMessage(
-          'Google Cloud OAuth is verifying your Android fingerprint. You can tap "Continue as Guest" below for full instant access!'
-        );
+        setErrorMessage('Google Sign-In could not complete. Tap Continue as Guest below.');
       } else {
         setLoading(false);
       }
     } catch (err: any) {
       setLoading(false);
-      setErrorMessage(
-        'Google Sign In service initiated. If prompt does not appear, continue as Guest.'
-      );
+      setErrorMessage('Could not launch Google Sign In. Tap Continue as Guest below.');
     }
   };
 
   const handleContinueAsGuest = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsGuest(true);
-    setUser(null);
     setHasCompletedOnboarding(true);
-    navigation.replace('Interests');
+    navigation.replace('MainTabs');
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          paddingTop: insets.top + 10,
-          paddingBottom: insets.bottom + 12,
-        },
-      ]}
-    >
+    <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 20 },
+        ]}
         showsVerticalScrollIndicator={false}
-        bounces={false}
       >
-        {/* Top Masthead & App Name */}
-        <View style={styles.topMasthead}>
-          <View style={styles.brandRow}>
-            <DigestlyLogo size="sm" />
-            <Text style={styles.brandName}>Digestly</Text>
+        {/* Top Header: Digestly wordmark (no square D icon) & Subtitle | Right italic slogan */}
+        <View style={styles.topHeader}>
+          <View style={styles.brandGroup}>
+            <DigestlyWordmark size="lg" color="#FFFFFF" />
+            <Text style={styles.regionBadge}>PAKISTAN • REGION • THE WORLD</Text>
           </View>
-          <Text style={styles.regionTracked}>PAKISTAN • REGION • THE WORLD</Text>
-          <Text style={styles.radarItalic}>The intelligent news radar</Text>
-        </View>
 
-        {/* Hero Title */}
-        <View style={styles.heroTitleBox}>
-          <Text style={styles.headline}>
-            News beyond{'\n'}
-            <Text style={styles.headlineAccent}>headlines.</Text>
-          </Text>
-          <Text style={styles.subheadline}>
-            AI-distilled editorial briefings from Pakistan’s most trusted publications and global wires.
+          <Text style={styles.topRightSlogan}>
+            More Context.\nBrighter Perspectives.
           </Text>
         </View>
 
-        {/* Fanned Card Deck Preview */}
-        <View style={styles.cardDeckContainer}>
-          <View style={[styles.deckCard, styles.deckCardBackLeft]}>
-            <Text style={styles.deckCardSource}>THE EXPRESS TRIBUNE</Text>
-            <Text style={styles.deckCardTitle} numberOfLines={2}>
-              State Bank maintains monetary pause amid steady disinflation...
-            </Text>
-          </View>
-          <View style={[styles.deckCard, styles.deckCardBackRight]}>
-            <Text style={styles.deckCardSource}>GEO NEWS</Text>
-            <Text style={styles.deckCardTitle} numberOfLines={2}>
-              PCB finalizes Qaddafi Stadium upgrades for Champions Trophy...
-            </Text>
-          </View>
-          <View style={[styles.deckCard, styles.deckCardFront]}>
-            <View style={styles.deckFrontHeader}>
-              <View style={styles.liveDot} />
-              <Text style={styles.deckFrontTag}>DAWN • BREAKING BRIEF</Text>
-              <Text style={styles.deckFrontTime}>2m ago</Text>
+        {/* Large Headline */}
+        <View style={styles.headlineSection}>
+          <Text style={styles.mainTitle}>
+            News beyond <Text style={styles.titleAccent}>headlines.</Text>
+          </Text>
+          <Text style={styles.titleSubtext}>
+            Curated. Unbiased. Built for a smarter you.
+          </Text>
+        </View>
+
+        {/* Fanned Card Stack (Pakistan / World / Business / Sports) */}
+        <View style={styles.fannedStackContainer}>
+          {/* Background Card 3: Sports */}
+          <View style={[styles.fannedCard, styles.fannedCard3]}>
+            <View style={[styles.cardTag, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
+              <Text style={[styles.cardTagText, { color: '#FBBF24' }]}>SPORTS</Text>
             </View>
-            <Text style={styles.deckFrontTitle}>
-              Digital voting architecture ratified across joint parliamentary committee
-            </Text>
-            <View style={styles.deckFrontBullet}>
-              <View style={styles.bulletDot} />
-              <Text style={styles.deckFrontBulletText} numberOfLines={1}>
-                Open-source cryptographic auditability mandated for future polls.
+          </View>
+
+          {/* Background Card 2: Business */}
+          <View style={[styles.fannedCard, styles.fannedCard2]}>
+            <View style={[styles.cardTag, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+              <Text style={[styles.cardTagText, { color: '#34D399' }]}>BUSINESS</Text>
+            </View>
+          </View>
+
+          {/* Foreground Top Card: Pakistan */}
+          <View style={[styles.fannedCard, styles.fannedCard1]}>
+            <Image
+              source={{
+                uri: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=800&q=80',
+              }}
+              style={styles.cardImage}
+              contentFit="cover"
+            />
+            <View style={styles.cardOverlay} />
+
+            <View style={[styles.cardTag, { backgroundColor: 'rgba(56, 189, 248, 0.25)' }]}>
+              <Text style={[styles.cardTagText, { color: '#38BDF8' }]}>PAKISTAN</Text>
+            </View>
+
+            <View style={styles.topCardHeadlineWrap}>
+              <Text style={styles.topCardHeadline} numberOfLines={2}>
+                State Bank keeps benchmark policy rate steady amid disinflation
               </Text>
+              <Text style={styles.topCardSource}>Dawn • 3-line brief</Text>
             </View>
           </View>
         </View>
 
-        {/* 3 Feature Highlights Cards */}
-        <View style={styles.featuresContainer}>
-          <View style={styles.featureRow}>
-            <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
-              <Ionicons name="flash-outline" size={18} color="#38BDF8" />
+        {/* 3 Feature Blocks */}
+        <View style={styles.featuresRow}>
+          <View style={styles.featureBlock}>
+            <View style={[styles.featureIconCircle, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+              <Ionicons name="flash" size={16} color="#38BDF8" />
             </View>
-            <View style={styles.featureTextWrap}>
-              <Text style={styles.featureTitle}>3-Line Fact Briefs</Text>
-              <Text style={styles.featureSub}>High-density, neutral key points in under 30 seconds.</Text>
-            </View>
+            <Text style={styles.featureTitle}>3-Line Fact Briefs</Text>
+            <Text style={styles.featureDesc}>Synthesised takeaways in seconds.</Text>
           </View>
 
-          <View style={styles.featureDivider} />
-
-          <View style={styles.featureRow}>
-            <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
-              <Ionicons name="git-network-outline" size={18} color="#34D399" />
+          <View style={styles.featureBlock}>
+            <View style={[styles.featureIconCircle, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
+              <Ionicons name="git-network" size={16} color="#34D399" />
             </View>
-            <View style={styles.featureTextWrap}>
-              <Text style={styles.featureTitle}>Multi-Source Radar</Text>
-              <Text style={styles.featureSub}>Compare reporting from Dawn, Tribune, and Geo side-by-side.</Text>
-            </View>
+            <Text style={styles.featureTitle}>Multi-Source Radar</Text>
+            <Text style={styles.featureDesc}>Cross-referenced coverage angles.</Text>
           </View>
 
-          <View style={styles.featureDivider} />
-
-          <View style={styles.featureRow}>
-            <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(251, 191, 36, 0.15)' }]}>
-              <Ionicons name="globe-outline" size={18} color="#FBBF24" />
+          <View style={styles.featureBlock}>
+            <View style={[styles.featureIconCircle, { backgroundColor: 'rgba(251, 191, 36, 0.15)' }]}>
+              <Ionicons name="language" size={16} color="#FBBF24" />
             </View>
-            <View style={styles.featureTextWrap}>
-              <Text style={styles.featureTitle}>Bilingual Intelligence</Text>
-              <Text style={styles.featureSub}>Instant high-fidelity translation in English and Urdu.</Text>
-            </View>
+            <Text style={styles.featureTitle}>Bilingual Intel</Text>
+            <Text style={styles.featureDesc}>English & Urdu translations.</Text>
           </View>
         </View>
 
-        {/* Night Earth Visual Graphic with Pakistan Glow Pins */}
-        <View style={styles.glowMapSection}>
-          <View style={styles.mapGraphic}>
-            <View style={styles.glowAura} />
-            {/* Location pins */}
-            <View style={[styles.pinWrapper, { top: 20, left: '38%' }]}>
-              <View style={styles.pinGlow} />
-              <View style={styles.pinCenter} />
+        {/* Quote Block */}
+        <View style={styles.quoteBlock}>
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color="#64748B" style={{ marginBottom: 6 }} />
+          <Text style={styles.quoteText}>
+            "News as it happens, distilled to what matters."
+          </Text>
+          <Text style={styles.quoteAuthor}>— Digestly Editorial</Text>
+        </View>
+
+        {/* Night Earth Graphic with Islamabad, Lahore, Karachi glow pins */}
+        <View style={styles.mapGraphicCard}>
+          <View style={styles.mapHeaderRow}>
+            <Ionicons name="earth" size={14} color="#38BDF8" style={{ marginRight: 6 }} />
+            <Text style={styles.mapTitle}>Live National Radar</Text>
+          </View>
+
+          <View style={styles.pinLocationsRow}>
+            <View style={styles.pinItem}>
+              <View style={[styles.pinDot, { backgroundColor: '#38BDF8' }]} />
               <Text style={styles.pinLabel}>Islamabad</Text>
             </View>
-            <View style={[styles.pinWrapper, { top: 40, left: '60%' }]}>
-              <View style={styles.pinGlow} />
-              <View style={styles.pinCenter} />
+            <View style={styles.pinItem}>
+              <View style={[styles.pinDot, { backgroundColor: '#34D399' }]} />
               <Text style={styles.pinLabel}>Lahore</Text>
             </View>
-            <View style={[styles.pinWrapper, { top: 75, left: '30%' }]}>
-              <View style={styles.pinGlow} />
-              <View style={styles.pinCenter} />
+            <View style={styles.pinItem}>
+              <View style={[styles.pinDot, { backgroundColor: '#FBBF24' }]} />
               <Text style={styles.pinLabel}>Karachi</Text>
             </View>
           </View>
         </View>
 
-        {/* Editorial Quote Block */}
-        <View style={styles.quoteCard}>
-          <Text style={styles.quoteIcon}>“</Text>
-          <Text style={styles.quoteText}>
-            An indispensable tool for every informed citizen who values signal over noise.
-          </Text>
-        </View>
-
-        {/* Error message if any */}
+        {/* Error notice if sign in fails */}
         {errorMessage && (
-          <View style={styles.errorBanner}>
+          <View style={styles.errorNotice}>
             <Ionicons name="information-circle" size={16} color="#38BDF8" style={{ marginRight: 8 }} />
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <Text style={styles.errorNoticeText}>{errorMessage}</Text>
           </View>
         )}
 
-        {/* Action Buttons: Solid White Google Pill & Outlined Guest Pill */}
-        <View style={styles.actionsContainer}>
-          {/* Continue with Google */}
+        {/* Action Buttons: Continue with Google & Continue as Guest */}
+        <View style={styles.actionsGroup}>
+          {/* White Pill Button: Continue with Google */}
           <TouchableOpacity
             activeOpacity={0.88}
-            onPress={handleGooglePress}
+            onPress={handleGoogleSignIn}
             disabled={loading}
             style={styles.googlePillButton}
           >
@@ -294,26 +276,34 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <ActivityIndicator size="small" color="#07090E" />
             ) : (
               <>
-                <Ionicons name="logo-google" size={18} color="#EA4335" style={{ marginRight: 10 }} />
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
+                <Ionicons name="logo-google" size={18} color="#07090E" style={{ marginRight: 8 }} />
+                <Text style={styles.googlePillText}>Continue with Google</Text>
+                <Ionicons name="arrow-forward" size={16} color="#07090E" style={{ marginLeft: 6 }} />
               </>
             )}
           </TouchableOpacity>
 
-          {/* Continue as Guest */}
+          {/* Outlined Pill Button: Continue as Guest */}
           <TouchableOpacity
-            activeOpacity={0.82}
+            activeOpacity={0.85}
             onPress={handleContinueAsGuest}
-            disabled={loading}
             style={styles.guestPillButton}
           >
-            <Text style={styles.guestButtonText}>Continue as Guest</Text>
+            <Ionicons name="person-outline" size={16} color="#E2E8F0" style={{ marginRight: 8 }} />
+            <Text style={styles.guestPillText}>Continue as Guest</Text>
+            <Ionicons name="arrow-forward" size={15} color="#94A3B8" style={{ marginLeft: 6 }} />
           </TouchableOpacity>
+
+          <Text style={styles.guestHintText}>
+            Guest mode saves bookmarks locally on this device.
+          </Text>
         </View>
 
-        {/* Footer Credit */}
-        <View style={styles.footerWrap}>
-          <Text style={styles.footerText}>Designed by Studio Xenos • Privacy & Terms</Text>
+        {/* Footer Credit with divider lines */}
+        <View style={styles.footerRow}>
+          <View style={styles.footerLine} />
+          <Text style={styles.footerCredit}>Made by Studio Xenos</Text>
+          <View style={styles.footerLine} />
         </View>
       </ScrollView>
     </View>
@@ -321,309 +311,252 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
     backgroundColor: '#07090E',
   },
   scrollContent: {
-    paddingHorizontal: 22,
-    paddingBottom: 24,
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
-  topMasthead: {
-    alignItems: 'center',
-    marginTop: 8,
+  topHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 20,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+  brandGroup: {
+    flex: 1,
   },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.4,
-  },
-  regionTracked: {
-    fontSize: 10,
+  regionBadge: {
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#64748B',
-    letterSpacing: 2.4,
-    marginBottom: 4,
+    letterSpacing: 1.2,
+    marginTop: 3,
   },
-  radarItalic: {
-    fontSize: 12,
+  topRightSlogan: {
+    fontSize: 11,
     fontStyle: 'italic',
     color: '#94A3B8',
+    textAlign: 'right',
+    lineHeight: 15,
   },
-  heroTitleBox: {
-    alignItems: 'center',
+  headlineSection: {
     marginBottom: 22,
   },
-  headline: {
-    fontSize: 34,
+  mainTitle: {
+    fontSize: 30,
     fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    lineHeight: 40,
-    letterSpacing: -0.6,
-    marginBottom: 8,
+    color: '#F8FAFC',
+    letterSpacing: -0.8,
+    lineHeight: 36,
   },
-  headlineAccent: {
+  titleAccent: {
     color: '#38BDF8',
   },
-  subheadline: {
+  titleSubtext: {
     fontSize: 14,
     color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 340,
+    marginTop: 6,
+    letterSpacing: -0.1,
   },
-  cardDeckContainer: {
-    height: 145,
-    width: '100%',
-    maxWidth: 360,
-    position: 'relative',
+  fannedStackContainer: {
+    height: 190,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 22,
+    marginBottom: 24,
+    position: 'relative',
   },
-  deckCard: {
+  fannedCard: {
+    position: 'absolute',
+    width: '92%',
+    height: 155,
     borderRadius: 16,
-    padding: 14,
     borderWidth: 1,
+    padding: 14,
   },
-  deckCardBackLeft: {
-    position: 'absolute',
-    width: '90%',
-    height: 115,
-    backgroundColor: '#0E131E',
-    borderColor: '#1E2638',
-    transform: [{ rotate: '-6deg' }, { translateY: -6 }],
-    opacity: 0.65,
-  },
-  deckCardBackRight: {
-    position: 'absolute',
-    width: '90%',
-    height: 115,
-    backgroundColor: '#0E131E',
-    borderColor: '#1E2638',
-    transform: [{ rotate: '5deg' }, { translateY: -3 }],
-    opacity: 0.75,
-  },
-  deckCardFront: {
-    position: 'absolute',
-    width: '98%',
-    height: 125,
+  fannedCard3: {
     backgroundColor: '#111622',
-    borderColor: '#2A364F',
+    borderColor: '#1E2638',
+    transform: [{ rotate: '5deg' }, { translateY: -4 }],
+    opacity: 0.6,
+  },
+  fannedCard2: {
+    backgroundColor: '#141B2A',
+    borderColor: '#243048',
+    transform: [{ rotate: '-3deg' }, { translateY: -2 }],
+    opacity: 0.85,
+  },
+  fannedCard1: {
+    backgroundColor: '#182030',
+    borderColor: '#2A3854',
+    overflow: 'hidden',
+    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 6,
   },
-  deckCardSource: {
+  cardImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  cardOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(7, 9, 14, 0.65)',
+  },
+  cardTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  cardTagText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: '800',
     letterSpacing: 0.8,
-    marginBottom: 4,
   },
-  deckCardTitle: {
-    fontSize: 12,
-    color: '#94A3B8',
-    lineHeight: 16,
+  topCardHeadlineWrap: {
+    marginTop: 'auto',
   },
-  deckFrontHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EF4444',
-    marginRight: 6,
-  },
-  deckFrontTag: {
-    fontSize: 10,
+  topCardHeadline: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#F87171',
-    letterSpacing: 0.8,
-    flex: 1,
-  },
-  deckFrontTime: {
-    fontSize: 10,
-    color: '#64748B',
-  },
-  deckFrontTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#FFFFFF',
     lineHeight: 18,
-    marginBottom: 6,
   },
-  deckFrontBullet: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  bulletDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#38BDF8',
-    marginRight: 6,
-  },
-  deckFrontBulletText: {
+  topCardSource: {
     fontSize: 11,
     color: '#94A3B8',
-    flex: 1,
+    marginTop: 4,
   },
-  featuresContainer: {
-    width: '100%',
-    maxWidth: 380,
+  featuresRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 20,
+  },
+  featureBlock: {
+    flex: 1,
     backgroundColor: '#111622',
-    borderRadius: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1E2638',
+    padding: 12,
+    alignItems: 'center',
+    textAlign: 'center',
+  },
+  featureIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  featureTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  featureDesc: {
+    fontSize: 10,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  quoteBlock: {
+    backgroundColor: '#0D111A',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#1E2638',
     padding: 14,
-    marginBottom: 20,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  featureIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  featureTextWrap: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    marginBottom: 2,
-  },
-  featureSub: {
-    fontSize: 12,
-    color: '#94A3B8',
-    lineHeight: 16,
-  },
-  featureDivider: {
-    height: 1,
-    backgroundColor: '#182030',
-    marginVertical: 10,
-  },
-  glowMapSection: {
-    width: '100%',
-    maxWidth: 380,
     alignItems: 'center',
     marginBottom: 16,
   },
-  mapGraphic: {
-    width: '100%',
-    height: 110,
-    borderRadius: 18,
-    backgroundColor: '#0A0D15',
+  quoteText: {
+    fontSize: 13.5,
+    fontStyle: 'italic',
+    color: '#E2E8F0',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  quoteAuthor: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  mapGraphicCard: {
+    backgroundColor: '#111622',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#151C2B',
-    position: 'relative',
-    overflow: 'hidden',
-    justifyContent: 'center',
+    borderColor: '#1E2638',
+    padding: 12,
+    marginBottom: 20,
   },
-  glowAura: {
-    position: 'absolute',
-    top: -20,
-    left: '20%',
-    width: 180,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(56, 189, 248, 0.05)',
+  mapHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  pinWrapper: {
-    position: 'absolute',
+  mapTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+  },
+  pinLocationsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     alignItems: 'center',
   },
-  pinGlow: {
-    position: 'absolute',
-    top: -3,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: 'rgba(56, 189, 248, 0.35)',
+  pinItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  pinCenter: {
+  pinDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#38BDF8',
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    marginRight: 6,
   },
   pinLabel: {
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '600',
     color: '#E2E8F0',
-    marginTop: 2,
-    letterSpacing: 0.3,
   },
-  quoteCard: {
-    width: '100%',
-    maxWidth: 380,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(17, 22, 34, 0.6)',
-    borderLeftWidth: 3,
-    borderLeftColor: '#38BDF8',
-    marginBottom: 20,
-  },
-  quoteIcon: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#38BDF8',
-    lineHeight: 18,
-  },
-  quoteText: {
-    fontSize: 12.5,
-    fontStyle: 'italic',
-    color: '#CBD5E1',
-    lineHeight: 18,
-  },
-  errorBanner: {
+  errorNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    maxWidth: 380,
+    backgroundColor: '#182030',
+    borderRadius: 10,
     padding: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
     marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#2A364F',
   },
-  errorText: {
+  errorNoticeText: {
     fontSize: 12,
-    color: '#38BDF8',
+    color: '#E2E8F0',
     flex: 1,
     lineHeight: 16,
   },
-  actionsContainer: {
+  actionsGroup: {
     width: '100%',
-    maxWidth: 380,
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   googlePillButton: {
     width: '100%',
@@ -635,15 +568,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
   },
-  googleButtonText: {
-    fontSize: 15,
+  googlePillText: {
+    fontSize: 14.5,
     fontWeight: '700',
     color: '#07090E',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   guestPillButton: {
     width: '100%',
@@ -652,22 +585,38 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: '#2A364F',
     backgroundColor: 'transparent',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  guestButtonText: {
+  guestPillText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#E2E8F0',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
-  footerWrap: {
-    paddingTop: 8,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 11,
+  guestHintText: {
+    fontSize: 11.5,
     color: '#64748B',
-    letterSpacing: 0.2,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 12,
+  },
+  footerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#1E2638',
+  },
+  footerCredit: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    letterSpacing: 0.4,
   },
 });

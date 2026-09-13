@@ -1,8 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+} from 'react-native-reanimated';
 import { MainTabParamList } from './types';
 import { HomeScreen } from '../screens/HomeScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
@@ -12,38 +18,78 @@ import { useTheme } from '../theme';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+interface AnimatedTabIconProps {
+  focused: boolean;
+  name: keyof typeof Ionicons.glyphMap;
+  color: string;
+  dotColor: string;
+}
+
+const AnimatedTabIcon: React.FC<AnimatedTabIconProps> = ({ focused, name, color, dotColor }) => {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (focused) {
+      scale.value = withSequence(
+        withSpring(1.18, { damping: 10, stiffness: 400 }),
+        withSpring(1.0, { damping: 12, stiffness: 300 })
+      );
+    } else {
+      scale.value = withSpring(1.0);
+    }
+  }, [focused]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.iconWrapper, animatedStyle]}>
+      <Ionicons name={name} size={20} color={color} />
+      {focused && <View style={[styles.activeDot, { backgroundColor: dotColor }]} />}
+    </Animated.View>
+  );
+};
+
 export const TabNavigator: React.FC = () => {
   const { colors, typography, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Dynamic bottom padding to handle Android gesture navigation & iPhone Home indicator
-  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 12);
-  const tabHeight = 52 + bottomInset;
+  const bottomFloat = Math.max(insets.bottom, 12);
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarShowLabel: true,
         tabBarStyle: {
-          backgroundColor: colors.tabBarBackground,
-          borderTopColor: colors.tabBarBorder,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          height: tabHeight,
+          position: 'absolute',
+          bottom: bottomFloat,
+          left: 28,
+          right: 28,
+          height: 54,
+          borderRadius: 27,
+          backgroundColor: isDark ? 'rgba(17, 22, 34, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          borderWidth: 1,
+          borderColor: isDark ? '#1E2638' : '#E2E8F0',
           paddingTop: 6,
-          paddingBottom: bottomInset,
-          elevation: 0,
-          shadowOpacity: 0,
+          paddingBottom: 6,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: isDark ? 0.35 : 0.08,
+          shadowRadius: 10,
+          elevation: 6,
         },
         tabBarActiveTintColor: colors.tabBarActive,
         tabBarInactiveTintColor: colors.tabBarInactive,
         tabBarLabelStyle: {
           fontFamily: typography.badge.fontFamily,
-          fontSize: 10,
-          fontWeight: '600',
+          fontSize: 9.5,
+          fontWeight: '700',
           letterSpacing: 0.2,
           marginTop: -2,
         },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'newspaper-outline';
 
           if (route.name === 'Feed') {
@@ -57,17 +103,12 @@ export const TabNavigator: React.FC = () => {
           }
 
           return (
-            <View style={styles.iconWrapper}>
-              <Ionicons name={iconName} size={20} color={color} />
-              {focused && (
-                <View
-                  style={[
-                    styles.activeDot,
-                    { backgroundColor: isDark ? colors.accentBlue : colors.accent },
-                  ]}
-                />
-              )}
-            </View>
+            <AnimatedTabIcon
+              focused={focused}
+              name={iconName}
+              color={color}
+              dotColor={isDark ? '#38BDF8' : '#0F172A'}
+            />
           );
         },
       })}

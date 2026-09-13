@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": ["digestly", "com.googleusercontent.apps.331798617464-n12jcph1mqhphc2l7opivq7ktnfklqio"],
+    "scheme": ["digestly", "com.googleusercontent.apps.331798617464-q6l7vvrdml02as6buf5nsp2sh7i1le4d", "com.googleusercontent.apps.331798617464-n12jcph1mqhphc2l7opivq7ktnfklqio"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.digestly.app",
@@ -15,7 +15,7 @@
       "package": "com.digestly.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#F6F5F3",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false

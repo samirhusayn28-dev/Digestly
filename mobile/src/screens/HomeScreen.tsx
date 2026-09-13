@@ -27,8 +27,7 @@ import {
 } from '../services/articles';
 import { ArticleCard } from '../components/feed/ArticleCard';
 import { BentoCard } from '../components/feed/BentoCard';
-import { DigestlyLogo } from '../components/common/DigestlyLogo';
-import { ReturningUserLoader } from '../components/common/ReturningUserLoader';
+import { DigestlyWordmark } from '../components/common/DigestlyWordmark';
 import { FeedSkeleton, ArticleCardSkeleton } from '../components/common/SkeletonLoader';
 import { CustomRefreshHeader } from '../components/feed/CustomRefreshHeader';
 
@@ -87,7 +86,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [showLoader, setShowLoader] = useState(true);
 
   const isTablet = width >= 768;
   const isUrdu = newsLanguage === 'ur';
@@ -208,11 +206,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     heroArticle;
 
   return (
-    <View style={[styles.container, { backgroundColor: '#07090E', paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
 
       {/* Editorial Header matching Feed.png */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { borderBottomColor: colors.borderLight }]}>
         <View style={styles.headerLeft}>
           <View style={styles.dateRow}>
             <Text style={styles.dateText}>{dateFormatted}</Text>
@@ -222,8 +220,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           <View style={styles.brandRow}>
-            <DigestlyLogo size="sm" />
-            <Text style={styles.brandTitleText}>Digestly</Text>
+            <DigestlyWordmark size="lg" />
           </View>
         </View>
 
@@ -235,12 +232,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <Ionicons name="search-outline" size={18} color="#94A3B8" />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Settings')}
-            style={styles.actionIconBtn}
-          >
-            <Ionicons name="notifications-outline" size={18} color="#94A3B8" />
-          </TouchableOpacity>
+
 
           <TouchableOpacity
             activeOpacity={0.8}
@@ -267,13 +259,13 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => handleFilterSelect(cat)}
                 style={[
                   styles.filterChip,
-                  isSelected ? styles.filterChipActive : styles.filterChipInactive,
+                  isSelected ? [styles.filterChipActive, { backgroundColor: colors.accent, borderColor: colors.accent }] : [styles.filterChipInactive, { backgroundColor: colors.surface, borderColor: colors.border }],
                 ]}
               >
                 <Text
                   style={[
                     styles.filterChipText,
-                    isSelected ? styles.filterChipTextActive : styles.filterChipTextInactive,
+                    isSelected ? [styles.filterChipTextActive, { color: isDark ? '#07090E' : '#FFFFFF' }] : [styles.filterChipTextInactive, { color: colors.textSecondary }],
                   ]}
                 >
                   {cat}
@@ -285,7 +277,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* Source Filter Control Row */}
-      <View style={styles.sourceFilterSection}>
+      <View style={[styles.sourceFilterSection, { borderBottomColor: colors.borderLight }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -303,7 +295,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 }}
                 style={[
                   styles.sourceChip,
-                  isSelected ? styles.sourceChipActive : styles.sourceChipInactive,
+                  isSelected ? [styles.sourceChipActive, { backgroundColor: colors.accent, borderColor: colors.accent }] : [styles.sourceChipInactive, { backgroundColor: colors.surface, borderColor: colors.border }],
                 ]}
               >
                 <Ionicons
@@ -315,7 +307,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <Text
                   style={[
                     styles.sourceChipText,
-                    isSelected ? styles.sourceChipTextActive : styles.sourceChipTextInactive,
+                    isSelected ? [styles.sourceChipTextActive, { color: isDark ? '#07090E' : '#FFFFFF' }] : [styles.sourceChipTextInactive, { color: colors.textSecondary }],
                   ]}
                 >
                   {src.label}
@@ -519,13 +511,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      {/* Returning User Soft Sweep Loader */}
-      {showLoader && (
-        <ReturningUserLoader
-          accentColorChoice="yellow"
-          onFinish={() => setShowLoader(false)}
-        />
-      )}
+
     </View>
   );
 };
@@ -542,7 +528,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#151B27',
+    borderBottomColor: '#1E2638',
   },
   headerLeft: {
     flex: 1,
@@ -613,7 +599,7 @@ const styles = StyleSheet.create({
   sourceFilterSection: {
     paddingVertical: 7,
     borderBottomWidth: 1,
-    borderBottomColor: '#151B27',
+    borderBottomColor: '#1E2638',
   },
   sourceFilterScroll: {
     paddingHorizontal: 16,

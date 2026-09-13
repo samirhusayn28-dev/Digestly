@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,15 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../navigation/types';
 import { useAppStore } from '../store/useAppStore';
-import { DigestlyLogo } from '../components/common/DigestlyLogo';
+import { DigestlyWordmark } from '../components/common/DigestlyWordmark';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
 interface SplashSlide {
   id: string;
   imageUri: string;
-  headlinePrefix: string;
+  headlineLine1: string;
   headlineAccent: string;
+  bodyText: string;
   captionIcon: keyof typeof Ionicons.glyphMap;
   captionText: string;
   accentColor: string;
@@ -33,31 +34,34 @@ const SPLASH_SLIDES: SplashSlide[] = [
   {
     id: '1',
     imageUri:
-      'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80', // Newspaper at sunset
-    headlinePrefix: 'Unbiased news,\n',
-    headlineAccent: 'synthesized.',
-    captionIcon: 'flash-outline',
-    captionText: 'Direct fact briefs extracted from leading national and international desks.',
+      'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80',
+    headlineLine1: 'The whole story in',
+    headlineAccent: 'three essential lines.',
+    bodyText: "Direct, objective news briefs synthesised by AI from Pakistan's most trusted editorial desks.",
+    captionIcon: 'document-text-outline',
+    captionText: 'Concise, verified 3-bullet executive briefs.',
     accentColor: '#38BDF8',
   },
   {
     id: '2',
     imageUri:
-      'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1200&q=80', // Hand holding phone / media
-    headlinePrefix: 'Multi-source\n',
-    headlineAccent: 'clarity.',
-    captionIcon: 'git-network-outline',
-    captionText: 'Read balanced angles and cross-referenced coverage from Dawn, Tribune, Geo, and BBC.',
+      'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&q=80',
+    headlineLine1: 'See beyond a',
+    headlineAccent: 'single headline.',
+    bodyText: 'Cross-referenced reporting from Dawn, Express Tribune, Geo News, BBC World, and Al Jazeera.',
+    captionIcon: 'scale-outline',
+    captionText: 'Balanced viewpoints and multiple editorial angles.',
     accentColor: '#34D399',
   },
   {
     id: '3',
     imageUri:
-      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80', // Dark Earth globe at night
-    headlinePrefix: 'Tailored to your\n',
-    headlineAccent: 'rhythm.',
-    captionIcon: 'sparkles-outline',
-    captionText: 'Choose the topics you care about most, updated in real time.',
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+    headlineLine1: 'Your nation, your',
+    headlineAccent: 'personalized focus.',
+    bodyText: 'Select your interests and stay ahead of breaking political, economic, and global developments.',
+    captionIcon: 'options-outline',
+    captionText: 'Tailored intelligence across 10 curated categories.',
     accentColor: '#FBBF24',
   },
 ];
@@ -68,16 +72,8 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
-  const hasCompletedOnboarding = useAppStore((state) => state.hasCompletedOnboarding);
-  const isGuest = useAppStore((state) => state.isGuest);
   const user = useAppStore((state) => state.user);
-
-  useEffect(() => {
-    // If user has already completed onboarding or is guest, can skip to MainTabs
-    if (hasCompletedOnboarding || isGuest || user) {
-      // Allow user to see splash or navigate immediately if returning
-    }
-  }, [hasCompletedOnboarding, isGuest, user]);
+  const isGuest = useAppStore((state) => state.isGuest);
 
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -101,10 +97,10 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     <View style={[styles.slideContainer, { width, height }]}>
       <ImageBackground
         source={{ uri: item.imageUri }}
-        style={StyleSheet.absoluteFill}
+        style={styles.backgroundImage}
         resizeMode="cover"
       >
-        {/* Dark gradient overlay layers for text readability */}
+        {/* Dark gradient vignettes for editorial contrast */}
         <View style={styles.topVignette} />
         <View style={styles.bottomVignette} />
 
@@ -112,19 +108,22 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         <View
           style={[
             styles.slideContent,
-            { paddingBottom: insets.bottom + 90, paddingHorizontal: 28 },
+            { paddingBottom: insets.bottom + 105, paddingHorizontal: 26 },
           ]}
         >
-          {/* Bold headline with colored accent word */}
-          <Text style={styles.headline}>
-            {item.headlinePrefix}
-            <Text style={{ color: item.accentColor }}>{item.headlineAccent}</Text>
+          {/* Large bold headline with accent color on second line */}
+          <Text style={styles.headlineLine1}>{item.headlineLine1}</Text>
+          <Text style={[styles.headlineAccent, { color: item.accentColor }]}>
+            {item.headlineAccent}
           </Text>
 
-          {/* Caption with icon */}
+          {/* Short body text */}
+          <Text style={styles.bodyText}>{item.bodyText}</Text>
+
+          {/* Icon + caption row */}
           <View style={styles.captionRow}>
-            <View style={styles.captionIconCircle}>
-              <Ionicons name={item.captionIcon} size={16} color="#FFFFFF" />
+            <View style={styles.captionIconWrap}>
+              <Ionicons name={item.captionIcon} size={15} color="#FFFFFF" />
             </View>
             <Text style={styles.captionText}>{item.captionText}</Text>
           </View>
@@ -137,20 +136,17 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Top Header Row with Logo & Skip Button */}
+      {/* Top Bar: Digestly Wordmark (no square D icon) + Skip Link */}
       <View
         style={[
           styles.topHeader,
           {
-            top: insets.top + 12,
+            top: insets.top + 10,
             paddingHorizontal: 24,
           },
         ]}
       >
-        <View style={styles.brandRow}>
-          <DigestlyLogo size="sm" />
-          <Text style={styles.brandTitle}>Digestly</Text>
-        </View>
+        <DigestlyWordmark size="lg" color="#FFFFFF" />
 
         <TouchableOpacity
           activeOpacity={0.7}
@@ -183,8 +179,8 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         style={[
           styles.bottomControls,
           {
-            bottom: insets.bottom + 20,
-            paddingHorizontal: 28,
+            bottom: insets.bottom + 26,
+            paddingHorizontal: 26,
           },
         ]}
       >
@@ -201,9 +197,9 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Circular White Button with Right Arrow */}
+        {/* Circular White Button with Arrow */}
         <TouchableOpacity
-          activeOpacity={0.85}
+          activeOpacity={0.88}
           onPress={handleNext}
           style={styles.arrowCircleButton}
         >
@@ -219,56 +215,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#07090E',
   },
-  topHeader: {
+  slideContainer: {
+    position: 'relative',
+  },
+  backgroundImage: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  brandTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
-  },
-  skipButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  skipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#E2E8F0',
-    letterSpacing: 0.2,
-  },
-  slideContainer: {
-    flex: 1,
+    bottom: 0,
   },
   topVignette: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 180,
-    backgroundColor: 'rgba(7, 9, 14, 0.55)',
+    height: 160,
+    backgroundColor: 'rgba(7, 9, 14, 0.45)',
   },
   bottomVignette: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '65%',
+    height: 480,
     backgroundColor: 'rgba(7, 9, 14, 0.88)',
+  },
+  topHeader: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 100,
+  },
+  skipButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(17, 22, 34, 0.6)',
+  },
+  skipText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   slideContent: {
     position: 'absolute',
@@ -276,49 +268,59 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  headline: {
-    fontSize: 38,
+  headlineLine1: {
+    fontSize: 32,
     fontWeight: '800',
     color: '#FFFFFF',
-    lineHeight: 46,
     letterSpacing: -0.8,
+    lineHeight: 38,
+  },
+  headlineAccent: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    lineHeight: 38,
+    marginBottom: 14,
+  },
+  bodyText: {
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: '#CBD5E1',
     marginBottom: 16,
+    letterSpacing: -0.1,
   },
   captionRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    maxWidth: '92%',
-  },
-  captionIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
+    backgroundColor: 'rgba(17, 22, 34, 0.65)',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  captionIconWrap: {
+    marginRight: 8,
   },
   captionText: {
-    fontSize: 14,
-    color: '#CBD5E1',
-    lineHeight: 20,
-    fontWeight: '400',
-    flex: 1,
+    fontSize: 12.5,
+    color: '#E2E8F0',
+    fontWeight: '500',
   },
   bottomControls: {
     position: 'absolute',
     left: 0,
     right: 0,
-    zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    zIndex: 100,
   },
   dotsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
   },
   dot: {
     height: 6,
@@ -342,7 +344,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 6,
     elevation: 4,
   },
 });

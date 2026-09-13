@@ -9,6 +9,7 @@ import {
   FlatList,
   StatusBar,
   useWindowDimensions,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -19,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList, RootStackParamList, Article } from '../navigation/types';
 import { fetchArticlesFromFirestore } from '../services/articles';
+import { useTheme } from '../theme';
 import { DiscoverSkeleton } from '../components/common/SkeletonLoader';
 
 type Props = CompositeScreenProps<
@@ -62,11 +64,18 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
   const { width } = useWindowDimensions();
   const initialCat = route.params?.initialCategory || 'All';
 
+  const { colors, isDark } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState(initialCat);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSource, setSelectedSource] = useState('all');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Advanced Filter Sheet State (Point 4)
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [sortBy, setSortBy] = useState<'latest' | 'multi' | 'breaking'>('latest');
+  const [timeRange, setTimeRange] = useState<'all' | '24h' | '7d'>('all');
+  const [multiSources, setMultiSources] = useState<string[]>([]);
 
   const isTablet = width >= 768;
 
@@ -94,34 +103,63 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
     setSelectedCategory(cat);
   };
 
-  const filteredArticles = articles.filter((item) => {
-    if (selectedSource !== 'all') {
-      const src = item.sourceName.toLowerCase();
-      let matches = false;
-      if (selectedSource === 'Dawn') matches = src.includes('dawn');
-      else if (selectedSource === 'Tribune') matches = src.includes('tribune');
-      else if (selectedSource === 'Geo News') matches = src.includes('geo');
-      else if (selectedSource === 'BBC World') matches = src.includes('bbc');
-      else if (selectedSource === 'Al Jazeera') matches = src.includes('jazeera');
-      else matches = src.includes(selectedSource.toLowerCase());
-      if (!matches) return false;
+  const filteredArticles = React.useMemo(() => {
+    let list = articles.filter((item) => {
+      // Single source pill filter
+      if (selectedSource !== 'all') {
+        const src = item.sourceName.toLowerCase();
+        let matches = false;
+        if (selectedSource === 'Dawn') matches = src.includes('dawn');
+        else if (selectedSource === 'Tribune') matches = src.includes('tribune');
+        else if (selectedSource === 'Geo News') matches = src.includes('geo');
+        else if (selectedSource === 'BBC World') matches = src.includes('bbc');
+        else if (selectedSource === 'Al Jazeera') matches = src.includes('jazeera');
+        else matches = src.includes(selectedSource.toLowerCase());
+        if (!matches) return false;
+      }
+
+      // Multi-source selection from filter sheet
+      if (multiSources.length > 0) {
+        const src = item.sourceName.toLowerCase();
+        const matchesAny = multiSources.some((ms) => src.includes(ms.toLowerCase()));
+        if (!matchesAny) return false;
+      }
+
+      // Time range filter
+      if (timeRange === '24h') {
+        const pub = (item.publishedAt || '').toLowerCase();
+        if (pub.includes('d ago') || pub.includes('w ago')) return false;
+      }
+
+      // Search query filter
+      const query = searchQuery.toLowerCase().trim();
+      if (query) {
+        const matchesQuery =
+          item.title.toLowerCase().includes(query) ||
+          item.sourceName.toLowerCase().includes(query) ||
+          item.category.toLowerCase().includes(query) ||
+          (item.summary && item.summary.some((s) => s.toLowerCase().includes(query)));
+        if (!matchesQuery) return false;
+      }
+
+      return true;
+    });
+
+    // Sorting
+    if (sortBy === 'multi') {
+      list = [...list].sort((a, b) => (b.relatedSources?.length || 0) - (a.relatedSources?.length || 0));
+    } else if (sortBy === 'breaking') {
+      list = [...list].sort((a, b) => (b.isBreaking ? 1 : 0) - (a.isBreaking ? 1 : 0));
     }
 
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
-    return (
-      item.title.toLowerCase().includes(query) ||
-      item.sourceName.toLowerCase().includes(query) ||
-      item.category.toLowerCase().includes(query) ||
-      item.summary.some((s) => s.toLowerCase().includes(query))
-    );
-  });
+    return list;
+  }, [articles, selectedSource, multiSources, timeRange, searchQuery, sortBy]);
 
   const highlightPair = filteredArticles.slice(0, 2);
   const restArticles = filteredArticles.slice(2);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       {/* Header with globe accent */}
@@ -156,10 +194,17 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         <TouchableOpacity
-          onPress={() => setSelectedCategory('All')}
-          style={styles.sliderFilterBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setIsFilterModalVisible(true);
+          }}
+          style={[styles.sliderFilterBtn, (multiSources.length > 0 || sortBy !== 'latest' || timeRange !== 'all') && { backgroundColor: '#38BDF8' }]}
         >
-          <Ionicons name="options-outline" size={20} color="#F8FAFC" />
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={(multiSources.length > 0 || sortBy !== 'latest' || timeRange !== 'all') ? '#07090E' : '#F8FAFC'}
+          />
         </TouchableOpacity>
       </View>
 
@@ -369,6 +414,172 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
         />
       )}
+
+      {/* Advanced Filter Bottom Sheet Modal (Point 4) */}
+      <Modal
+        visible={isFilterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsFilterModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setIsFilterModalVisible(false)}
+          />
+
+          <View style={[styles.modalSheet, { backgroundColor: isDark ? '#111622' : '#FFFFFF', borderColor: isDark ? '#1E2638' : '#E2E8F0' }]}>
+            {/* Sheet Handle */}
+            <View style={styles.modalHandle} />
+
+            {/* Header */}
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={[styles.modalTitle, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>
+                  Filter & Sort
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  Refine feed order, time window & multiple sources
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSortBy('latest');
+                  setTimeRange('all');
+                  setMultiSources([]);
+                }}
+              >
+                <Text style={styles.modalResetText}>Reset All</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              {/* Section 1: Sort By */}
+              <Text style={styles.modalSectionLabel}>SORT ORDER</Text>
+              <View style={styles.modalChipRow}>
+                {[
+                  { id: 'latest', label: 'Latest First', icon: 'time-outline' },
+                  { id: 'multi', label: 'Multi-Source First', icon: 'git-network-outline' },
+                  { id: 'breaking', label: 'Breaking News', icon: 'flash-outline' },
+                ].map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSortBy(s.id as any);
+                    }}
+                    style={[
+                      styles.modalOptionChip,
+                      sortBy === s.id ? styles.modalOptionChipActive : styles.modalOptionChipInactive,
+                    ]}
+                  >
+                    <Ionicons
+                      name={s.icon as any}
+                      size={14}
+                      color={sortBy === s.id ? '#07090E' : '#94A3B8'}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[
+                        styles.modalOptionChipText,
+                        sortBy === s.id ? styles.modalOptionChipTextActive : styles.modalOptionChipTextInactive,
+                      ]}
+                    >
+                      {s.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Section 2: Time Range */}
+              <Text style={styles.modalSectionLabel}>TIME RANGE</Text>
+              <View style={styles.modalChipRow}>
+                {[
+                  { id: 'all', label: 'All Time' },
+                  { id: '24h', label: 'Past 24 Hours' },
+                  { id: '7d', label: 'Past 7 Days' },
+                ].map((t) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setTimeRange(t.id as any);
+                    }}
+                    style={[
+                      styles.modalOptionChip,
+                      timeRange === t.id ? styles.modalOptionChipActive : styles.modalOptionChipInactive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionChipText,
+                        timeRange === t.id ? styles.modalOptionChipTextActive : styles.modalOptionChipTextInactive,
+                      ]}
+                    >
+                      {t.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Section 3: Multi-Source Filter */}
+              <Text style={styles.modalSectionLabel}>ACTIVE SOURCES (MULTI-SELECT)</Text>
+              <View style={styles.modalChipRow}>
+                {['Dawn', 'Tribune', 'Geo News', 'BBC World', 'Al Jazeera'].map((src) => {
+                  const isChecked = multiSources.includes(src);
+                  return (
+                    <TouchableOpacity
+                      key={src}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        if (isChecked) {
+                          setMultiSources(multiSources.filter((s) => s !== src));
+                        } else {
+                          setMultiSources([...multiSources, src]);
+                        }
+                      }}
+                      style={[
+                        styles.modalOptionChip,
+                        isChecked ? styles.modalOptionChipActive : styles.modalOptionChipInactive,
+                      ]}
+                    >
+                      <Ionicons
+                        name={isChecked ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={15}
+                        color={isChecked ? '#07090E' : '#94A3B8'}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.modalOptionChipText,
+                          isChecked ? styles.modalOptionChipTextActive : styles.modalOptionChipTextInactive,
+                        ]}
+                      >
+                        {src}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Apply Button */}
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setIsFilterModalVisible(false);
+              }}
+              style={styles.modalApplyBtn}
+            >
+              <Text style={styles.modalApplyBtnText}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -697,5 +908,101 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#07090E',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 34,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#64748B',
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  modalResetText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38BDF8',
+    marginTop: 2,
+  },
+  modalSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 1,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  modalChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  modalOptionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  modalOptionChipActive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#F8FAFC',
+  },
+  modalOptionChipInactive: {
+    backgroundColor: '#161E2E',
+    borderColor: '#243048',
+  },
+  modalOptionChipText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  modalOptionChipTextActive: {
+    color: '#07090E',
+    fontWeight: '700',
+  },
+  modalOptionChipTextInactive: {
+    color: '#94A3B8',
+  },
+  modalApplyBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#38BDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  modalApplyBtnText: {
+    color: '#07090E',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
