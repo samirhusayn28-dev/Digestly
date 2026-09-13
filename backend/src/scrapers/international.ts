@@ -13,7 +13,7 @@ export async function scrapeInternationalNews(): Promise<ScrapedRawArticle[]> {
     },
     {
       sourceName: 'Al Jazeera',
-      url: 'https://www.aljazeera.com/xml/rss/all.xml',
+      url: 'https://news.google.com/rss/search?q=source:%22Al+Jazeera%22+when:1d&hl=en-US&gl=US&ceid=US:en',
     },
     {
       sourceName: 'Reuters',
@@ -42,7 +42,7 @@ export async function scrapeInternationalNews(): Promise<ScrapedRawArticle[]> {
 
       const $ = cheerio.load(response.data, { xmlMode: true });
 
-      $('item').each((_, elem) => {
+      $('item').slice(0, 8).each((_, elem) => {
         const rawTitle = $(elem).find('title').text().trim();
         const link = $(elem).find('link').text().trim();
         const pubDate = $(elem).find('pubDate').text().trim();

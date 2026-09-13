@@ -31,6 +31,7 @@ import { useTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
 import { translateArticleContent } from '../services/translation';
 import { ArticleDetailSkeleton } from '../components/common/SkeletonLoader';
+import { getArticleImageUri } from '../utils/imageHelper';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ArticleDetail'>;
 
@@ -377,7 +378,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* HERO IMAGE CONTAINER WITH CIRCULAR TOP BAR OVERLAY */}
         <View style={styles.heroContainer}>
           <Image
-            source={{ uri: article.imageUrl }}
+            source={{ uri: getArticleImageUri(article) }}
             style={styles.heroImage}
             contentFit="cover"
             transition={300}

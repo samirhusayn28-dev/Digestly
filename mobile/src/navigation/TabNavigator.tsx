@@ -55,39 +55,31 @@ export const TabNavigator: React.FC = () => {
   const { colors, typography } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const bottomFloat = Math.max(insets.bottom, 12);
-
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarShowLabel: true,
         tabBarStyle: {
-          position: 'absolute',
-          bottom: bottomFloat,
-          left: 40,
-          right: 40,
-          height: 52,
-          borderRadius: 26,
-          backgroundColor: 'rgba(13, 17, 26, 0.96)',
-          borderWidth: 1,
-          borderColor: 'rgba(255, 255, 255, 0.08)',
-          paddingTop: 5,
-          paddingBottom: 5,
+          backgroundColor: '#090D16',
+          borderTopWidth: 1,
+          borderTopColor: '#1A2130',
+          height: Platform.OS === 'ios' ? 84 : 62 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: insets.bottom > 0 ? insets.bottom + 4 : 8,
+          elevation: 12,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.45,
-          shadowRadius: 12,
-          elevation: 8,
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.35,
+          shadowRadius: 6,
         },
         tabBarActiveTintColor: '#38BDF8',
         tabBarInactiveTintColor: '#64748B',
         tabBarLabelStyle: {
-          fontFamily: typography.badge.fontFamily,
-          fontSize: 9,
+          fontSize: 10,
           fontWeight: '600',
           letterSpacing: 0.2,
-          marginTop: -2,
+          marginTop: 2,
         },
         tabBarIcon: ({ focused, color }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'newspaper-outline';

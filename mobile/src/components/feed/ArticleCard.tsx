@@ -14,6 +14,7 @@ import { Article } from '../../navigation/types';
 import { useTheme } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { translateArticleContent } from '../../services/translation';
+import { getCategoryFallbackUri } from '../../utils/imageHelper';
 
 interface ArticleCardProps {
   article: Article;
@@ -189,28 +190,18 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, onPress }) =>
             {translatedTitle}
           </Text>
 
-          {/* Thumbnail / Image Fallback */}
-          {!imageError && article.imageUrl ? (
-            <Image
-              source={{ uri: article.imageUrl }}
-              style={styles.thumbnail}
-              contentFit="cover"
-              transition={200}
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <View
-              style={[
-                styles.thumbnailFallback,
-                { backgroundColor: isDark ? '#1E2536' : '#F1F5F9', borderColor: colors.borderLight },
-              ]}
-            >
-              <Ionicons name="newspaper-outline" size={24} color={colors.textTertiary} />
-              <Text style={[styles.fallbackSource, { color: colors.textTertiary }]} numberOfLines={1}>
-                {article.sourceName}
-              </Text>
-            </View>
-          )}
+          {/* Thumbnail / Image with guaranteed editorial photograph */}
+          <Image
+            source={{
+              uri: !imageError && article.imageUrl
+                ? article.imageUrl
+                : getCategoryFallbackUri(article.category, article.id),
+            }}
+            style={styles.thumbnail}
+            contentFit="cover"
+            transition={200}
+            onError={() => setImageError(true)}
+          />
         </View>
 
         {/* AI 3-Line Summary Card */}

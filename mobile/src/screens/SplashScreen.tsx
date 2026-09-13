@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ImageBackground,
   TouchableOpacity,
   useWindowDimensions,
   StatusBar,
@@ -19,44 +18,16 @@ import { DigestlyWordmark } from '../components/common/DigestlyWordmark';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
-interface SplashSlide {
+interface SlideData {
   id: string;
-  imageUri: string;
+  badge: string;
+  badgeColor: string;
   headlineLine1: string;
   headlineAccent: string;
   accentColor: string;
-  bodyText: string;
+  subtext: string;
+  renderIllustration: () => React.ReactNode;
 }
-
-const SPLASH_SLIDES: SplashSlide[] = [
-  {
-    id: '1',
-    imageUri:
-      'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80',
-    headlineLine1: 'Essential news,',
-    headlineAccent: 'distilled in seconds.',
-    accentColor: '#38BDF8',
-    bodyText: "Objective 3-sentence briefings synthesised from Pakistan's most respected editorial desks.",
-  },
-  {
-    id: '2',
-    imageUri:
-      'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=1200&q=80',
-    headlineLine1: 'Every perspective,',
-    headlineAccent: 'without the noise.',
-    accentColor: '#34D399',
-    bodyText: 'Cross-referenced coverage comparing Dawn, Express Tribune, Geo News, and global publishers.',
-  },
-  {
-    id: '3',
-    imageUri:
-      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
-    headlineLine1: 'Stay ahead of what',
-    headlineAccent: 'actually matters.',
-    accentColor: '#FBBF24',
-    bodyText: 'Curated intelligence across business, politics, technology, and global affairs.',
-  },
-];
 
 export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const { width, height } = useWindowDimensions();
@@ -69,7 +40,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const hasCompletedOnboarding = useAppStore((state) => state.hasCompletedOnboarding);
   const setHasCompletedOnboarding = useAppStore((state) => state.setHasCompletedOnboarding);
 
-  // Skip splash if user already logged in or completed onboarding
+  // If already logged in or completed onboarding, immediately bypass to main app
   useEffect(() => {
     if (hasCompletedOnboarding || user || isGuest) {
       navigation.replace('MainTabs');
@@ -78,15 +49,15 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (currentIndex < SPLASH_SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
+    if (currentIndex < slides.length - 1) {
+      flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
     } else {
-      finishSplash();
+      finishOnboarding();
     }
   };
 
-  const finishSplash = () => {
-    Haptics.selectionAsync();
+  const finishOnboarding = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setHasCompletedOnboarding(true);
     if (user || isGuest) {
       navigation.replace('MainTabs');
@@ -95,56 +66,184 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const renderSlide = ({ item }: { item: SplashSlide }) => (
-    <View style={[styles.slideContainer, { width, height }]}>
-      <ImageBackground
-        source={{ uri: item.imageUri }}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
-        {/* Deep dark gradient overlays for minimal contrast */}
-        <View style={styles.topVignette} />
-        <View style={styles.bottomVignette} />
+  const slides: SlideData[] = [
+    {
+      id: '1',
+      badge: 'THE 60-SECOND BRIEF',
+      badgeColor: '#38BDF8',
+      headlineLine1: 'Essential news.',
+      headlineAccent: 'In sixty seconds.',
+      accentColor: '#38BDF8',
+      subtext: "Objective three-sentence briefings synthesized from Pakistan's most trusted desks.",
+      renderIllustration: () => (
+        <View style={styles.cardContainer}>
+          {/* Ambient Glow */}
+          <View style={[styles.glowEffect, { backgroundColor: 'rgba(56, 189, 248, 0.12)' }]} />
 
-        {/* Slide Bottom Content */}
-        <View
-          style={[
-            styles.slideContent,
-            { paddingBottom: insets.bottom + 96, paddingHorizontal: 28 },
-          ]}
-        >
-          {/* Bold two-line headline with accent colored phrase */}
-          <Text style={styles.headlineLine1}>{item.headlineLine1}</Text>
-          <Text style={[styles.headlineAccent, { color: item.accentColor }]}>
-            {item.headlineAccent}
-          </Text>
+          <View style={styles.showcaseCard}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTimerPill}>
+                <Ionicons name="timer-outline" size={13} color="#38BDF8" style={{ marginRight: 4 }} />
+                <Text style={styles.cardTimerText}>60s Digest</Text>
+              </View>
+              <View style={styles.cardLiveIndicator}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+            </View>
 
-          {/* Clean one-line muted gray supporting text */}
-          <Text style={styles.bodyText}>{item.bodyText}</Text>
+            {/* Brief Headline Mockup */}
+            <Text style={styles.cardHeadline}>State Bank Maintains Benchmark Policy Rate at 11%</Text>
+
+            {/* 3 Digest Bullet Lines */}
+            <View style={styles.bulletList}>
+              <View style={styles.bulletRow}>
+                <View style={[styles.bulletDot, { backgroundColor: '#38BDF8' }]} />
+                <View style={[styles.bulletLine, { width: '88%' }]} />
+              </View>
+              <View style={styles.bulletRow}>
+                <View style={[styles.bulletDot, { backgroundColor: '#38BDF8' }]} />
+                <View style={[styles.bulletLine, { width: '74%' }]} />
+              </View>
+              <View style={styles.bulletRow}>
+                <View style={[styles.bulletDot, { backgroundColor: '#38BDF8' }]} />
+                <View style={[styles.bulletLine, { width: '92%' }]} />
+              </View>
+            </View>
+
+            {/* Footer tags */}
+            <View style={styles.cardFooter}>
+              <Text style={styles.sourceTag}>Dawn • The Express Tribune • Geo</Text>
+              <Text style={styles.readTime}>45s read</Text>
+            </View>
+          </View>
         </View>
-      </ImageBackground>
-    </View>
-  );
+      ),
+    },
+    {
+      id: '2',
+      badge: 'CROSS-CHECKED REPORTING',
+      badgeColor: '#34D399',
+      headlineLine1: 'Every perspective.',
+      headlineAccent: 'Zero bias.',
+      accentColor: '#34D399',
+      subtext: 'Cross-referenced coverage comparing Dawn, Tribune, Geo, and global publishers side-by-side.',
+      renderIllustration: () => (
+        <View style={styles.cardContainer}>
+          {/* Ambient Glow */}
+          <View style={[styles.glowEffect, { backgroundColor: 'rgba(52, 211, 153, 0.12)' }]} />
+
+          <View style={styles.multiSourceWrapper}>
+            {/* Source Card 1 */}
+            <View style={[styles.sourceCard, styles.sourceCardTop]}>
+              <View style={styles.sourceRow}>
+                <Text style={styles.sourceBadgeName}>Dawn</Text>
+                <Text style={styles.sourceTime}>Editorial Focus</Text>
+              </View>
+              <Text style={styles.sourceHeadline} numberOfLines={1}>
+                MPC highlights disinflation trajectory and current account surplus.
+              </Text>
+            </View>
+
+            {/* Source Card 2 */}
+            <View style={[styles.sourceCard, styles.sourceCardMiddle]}>
+              <View style={styles.sourceRow}>
+                <Text style={[styles.sourceBadgeName, { color: '#34D399' }]}>The Express Tribune</Text>
+                <Text style={styles.sourceTime}>Market View</Text>
+              </View>
+              <Text style={styles.sourceHeadline} numberOfLines={1}>
+                Industrial manufacturers advocate calibrated rate cuts by Q2.
+              </Text>
+            </View>
+
+            {/* Source Card 3 */}
+            <View style={[styles.sourceCard, styles.sourceCardBottom]}>
+              <View style={styles.sourceRow}>
+                <Text style={[styles.sourceBadgeName, { color: '#FBBF24' }]}>Geo News</Text>
+                <Text style={styles.sourceTime}>Government Desk</Text>
+              </View>
+              <Text style={styles.sourceHeadline} numberOfLines={1}>
+                Finance Ministry confirms fiscal targets remain on track.
+              </Text>
+            </View>
+          </View>
+        </View>
+      ),
+    },
+    {
+      id: '3',
+      badge: 'INTELLIGENT BRIEFING',
+      badgeColor: '#FBBF24',
+      headlineLine1: 'Your daily brief.',
+      headlineAccent: 'Always ready.',
+      accentColor: '#FBBF24',
+      subtext: 'Curated morning intelligence with smart push updates and instant audio narration.',
+      renderIllustration: () => (
+        <View style={styles.cardContainer}>
+          {/* Ambient Glow */}
+          <View style={[styles.glowEffect, { backgroundColor: 'rgba(251, 191, 36, 0.12)' }]} />
+
+          <View style={styles.executiveCard}>
+            <View style={styles.execHeader}>
+              <Ionicons name="sparkles" size={15} color="#FBBF24" style={{ marginRight: 6 }} />
+              <Text style={styles.execHeaderTitle}>MORNING INTELLIGENCE</Text>
+            </View>
+
+            <View style={styles.topicPillsRow}>
+              <View style={[styles.topicPill, { borderColor: '#38BDF8' }]}>
+                <Text style={[styles.topicPillText, { color: '#38BDF8' }]}>Politics</Text>
+              </View>
+              <View style={[styles.topicPill, { borderColor: '#34D399' }]}>
+                <Text style={[styles.topicPillText, { color: '#34D399' }]}>Economy</Text>
+              </View>
+              <View style={[styles.topicPill, { borderColor: '#A78BFA' }]}>
+                <Text style={[styles.topicPillText, { color: '#A78BFA' }]}>Technology</Text>
+              </View>
+            </View>
+
+            {/* Audio waveform mockup */}
+            <View style={styles.audioWaveBox}>
+              <View style={styles.audioIconCircle}>
+                <Ionicons name="volume-medium" size={16} color="#05070B" />
+              </View>
+              <View style={styles.waveformContainer}>
+                {[14, 22, 10, 26, 18, 12, 28, 16, 22, 14, 20, 8, 24, 18, 10, 26].map((h, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.waveBar,
+                      {
+                        height: h,
+                        backgroundColor: i < 7 ? '#FBBF24' : 'rgba(255, 255, 255, 0.25)',
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={styles.audioDuration}>3:45</Text>
+            </View>
+          </View>
+        </View>
+      ),
+    },
+  ];
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Minimal Top Header */}
-      <View
-        style={[
-          styles.topHeader,
-          {
-            top: insets.top + 12,
-            paddingHorizontal: 28,
-          },
-        ]}
-      >
-        <DigestlyWordmark size="md" color="#FFFFFF" />
+      {/* Top Header */}
+      <View style={[styles.topHeader, { top: insets.top + 14 }]}>
+        <View style={styles.brandRow}>
+          <DigestlyWordmark size="md" color="#FFFFFF" />
+          <View style={styles.brandPill}>
+            <Text style={styles.brandPillText}>BRIEFINGS</Text>
+          </View>
+        </View>
 
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={finishSplash}
+          onPress={finishOnboarding}
           hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
           style={styles.skipButton}
         >
@@ -152,52 +251,75 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Slide Carousel */}
+      {/* Carousel */}
       <FlatList
         ref={flatListRef}
-        data={SPLASH_SLIDES}
-        keyExtractor={(s) => s.id}
-        renderItem={renderSlide}
+        data={slides}
+        keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(e) => {
-          const newIdx = Math.round(e.nativeEvent.contentOffset.x / width);
-          setCurrentIndex(newIdx);
-        }}
         bounces={false}
+        onMomentumScrollEnd={(e) => {
+          const index = Math.round(e.nativeEvent.contentOffset.x / width);
+          setCurrentIndex(index);
+        }}
+        renderItem={({ item }) => (
+          <View style={[styles.slide, { width, height }]}>
+            {/* Center Visual Motif */}
+            <View style={styles.illustrationArea}>{item.renderIllustration()}</View>
+
+            {/* Bottom Copy Section */}
+            <View style={[styles.copyContainer, { paddingBottom: insets.bottom + 88 }]}>
+              {/* Category Micro-Badge */}
+              <View style={[styles.slideBadge, { borderColor: item.badgeColor }]}>
+                <Text style={[styles.slideBadgeText, { color: item.badgeColor }]}>
+                  {item.badge}
+                </Text>
+              </View>
+
+              {/* Headline */}
+              <Text style={styles.headlineLine1}>{item.headlineLine1}</Text>
+              <Text style={[styles.headlineAccent, { color: item.accentColor }]}>
+                {item.headlineAccent}
+              </Text>
+
+              {/* 1-Line Supporting Subtext */}
+              <Text style={styles.subtext}>{item.subtext}</Text>
+            </View>
+          </View>
+        )}
       />
 
-      {/* Bottom Controls: Minimal dots + circular white arrow */}
-      <View
-        style={[
-          styles.bottomControls,
-          {
-            bottom: insets.bottom + 26,
-            paddingHorizontal: 28,
-          },
-        ]}
-      >
-        {/* Pagination Dots */}
-        <View style={styles.dotsContainer}>
-          {SPLASH_SLIDES.map((_, idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.dot,
-                currentIndex === idx ? styles.activeDot : styles.inactiveDot,
-              ]}
-            />
-          ))}
+      {/* Bottom Floating Navigation Controls */}
+      <View style={[styles.bottomBar, { bottom: insets.bottom + 18 }]}>
+        {/* Pagination Dots/Pills */}
+        <View style={styles.paginationRow}>
+          {slides.map((_, i) => {
+            const isActive = i === currentIndex;
+            return (
+              <View
+                key={i}
+                style={[
+                  styles.paginationDot,
+                  isActive ? styles.paginationPillActive : styles.paginationDotInactive,
+                ]}
+              />
+            );
+          })}
         </View>
 
         {/* Circular Next Button */}
         <TouchableOpacity
-          activeOpacity={0.88}
+          activeOpacity={0.85}
           onPress={handleNext}
-          style={styles.arrowCircleButton}
+          style={styles.nextButton}
         >
-          <Ionicons name="arrow-forward" size={22} color="#07090E" />
+          <Ionicons
+            name={currentIndex === slides.length - 1 ? 'arrow-forward' : 'arrow-forward'}
+            size={22}
+            color="#05070B"
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -207,118 +329,345 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#07090E',
-  },
-  slideContainer: {
-    position: 'relative',
-  },
-  backgroundImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  topVignette: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 160,
-    backgroundColor: 'rgba(7, 9, 14, 0.45)',
-  },
-  bottomVignette: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 480,
-    backgroundColor: 'rgba(7, 9, 14, 0.88)',
+    backgroundColor: '#05070B',
   },
   topHeader: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: 24,
+    right: 24,
+    zIndex: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 100,
+    gap: 8,
+  },
+  brandPill: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  brandPillText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#38BDF8',
+    letterSpacing: 0.8,
   },
   skipButton: {
-    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(17, 22, 34, 0.6)',
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   skipText: {
-    color: '#E2E8F0',
     fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    color: '#94A3B8',
   },
-  slideContent: {
+  slide: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 28,
+  },
+  illustrationArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 80,
+  },
+  cardContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  glowEffect: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
   },
-  headlineLine1: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.8,
-    lineHeight: 38,
+  showcaseCard: {
+    width: '100%',
+    backgroundColor: '#0D131F',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
   },
-  headlineAccent: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-    lineHeight: 38,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 14,
   },
-  bodyText: {
-    fontSize: 15,
+  cardTimerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  cardTimerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  cardLiveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
+  },
+  liveText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#EF4444',
+    letterSpacing: 0.5,
+  },
+  cardHeadline: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F8FAFC',
     lineHeight: 22,
+    marginBottom: 16,
+  },
+  bulletList: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  bulletDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  bulletLine: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#1E293B',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#161F2E',
+  },
+  sourceTag: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  readTime: {
+    fontSize: 11,
+    color: '#38BDF8',
+    fontWeight: '600',
+  },
+  multiSourceWrapper: {
+    width: '100%',
+    gap: 10,
+  },
+  sourceCard: {
+    backgroundColor: '#0D131F',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 14,
+  },
+  sourceCardTop: {
+    opacity: 0.9,
+  },
+  sourceCardMiddle: {
+    borderColor: 'rgba(52, 211, 153, 0.3)',
+    backgroundColor: '#0E1724',
+  },
+  sourceCardBottom: {
+    opacity: 0.85,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  sourceBadgeName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  sourceTime: {
+    fontSize: 10.5,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  sourceHeadline: {
+    fontSize: 12.5,
     color: '#94A3B8',
+    lineHeight: 17,
+  },
+  executiveCard: {
+    width: '100%',
+    backgroundColor: '#0D131F',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 20,
+  },
+  execHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  execHeaderTitle: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#FBBF24',
+    letterSpacing: 1,
+  },
+  topicPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 18,
+  },
+  topicPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  topicPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  audioWaveBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#070A10',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  audioIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FBBF24',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waveformContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 28,
+  },
+  waveBar: {
+    width: 3,
+    borderRadius: 2,
+  },
+  audioDuration: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  copyContainer: {
+    alignItems: 'flex-start',
+  },
+  slideBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  slideBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  headlineLine1: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    lineHeight: 36,
+    letterSpacing: -0.6,
+  },
+  headlineAccent: {
+    fontSize: 30,
+    fontWeight: '800',
+    lineHeight: 36,
+    letterSpacing: -0.6,
+    marginBottom: 12,
+  },
+  subtext: {
+    fontSize: 14.5,
+    color: '#94A3B8',
+    lineHeight: 21,
     letterSpacing: -0.1,
   },
-  bottomControls: {
+  bottomBar: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: 28,
+    right: 28,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    zIndex: 100,
+    alignItems: 'center',
   },
-  dotsContainer: {
+  paginationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
   },
-  dot: {
+  paginationDot: {
     height: 6,
     borderRadius: 3,
   },
-  activeDot: {
-    width: 24,
-    backgroundColor: '#FFFFFF',
+  paginationPillActive: {
+    width: 26,
+    backgroundColor: '#38BDF8',
   },
-  inactiveDot: {
+  paginationDotInactive: {
     width: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: '#1E293B',
   },
-  arrowCircleButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  nextButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
 });

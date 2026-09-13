@@ -39,7 +39,7 @@ export const DigestlyWordmark: React.FC<DigestlyWordmarkProps> = ({
         {
           fontSize,
           color: color || colors.textPrimary,
-          letterSpacing: -0.6,
+          letterSpacing: -0.8,
         },
         style,
       ]}
@@ -51,7 +51,7 @@ export const DigestlyWordmark: React.FC<DigestlyWordmarkProps> = ({
 
 const styles = StyleSheet.create({
   wordmark: {
-    fontFamily: 'Sora_700Bold',
-    fontWeight: '700',
+    fontFamily: 'PlayfairDisplay_800ExtraBold',
+    fontWeight: '800',
   },
 });

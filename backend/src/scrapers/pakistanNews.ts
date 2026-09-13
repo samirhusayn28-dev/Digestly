@@ -30,32 +30,32 @@ export async function scrapeExpandedPakistanNews(): Promise<ScrapedRawArticle[]>
     },
     {
       sourceName: 'Samaa TV',
-      url: 'https://www.samaa.tv/feed/',
+      url: 'https://news.google.com/rss/search?q=site:samaa.tv+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Politics',
     },
     {
       sourceName: 'Dunya News',
-      url: 'https://dunyanews.tv/index.php/en/rss/',
+      url: 'https://news.google.com/rss/search?q=site:dunyanews.tv+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Politics',
     },
     {
       sourceName: '92 News',
-      url: 'https://92newshd.tv/feed/',
+      url: 'https://news.google.com/rss/search?q=site:92newshd.tv+when:7d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Politics',
     },
     {
       sourceName: 'Pakistan Today',
-      url: 'https://www.pakistantoday.com.pk/feed/',
+      url: 'https://news.google.com/rss/search?q=site:pakistantoday.com.pk+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Politics',
     },
     {
       sourceName: 'Daily Times',
-      url: 'https://dailytimes.com.pk/feed/',
+      url: 'https://news.google.com/rss/search?q=site:dailytimes.com.pk+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Politics',
     },
     {
       sourceName: 'The Nation',
-      url: 'https://www.nation.com.pk/rss/',
+      url: 'https://news.google.com/rss/search?q=site:nation.com.pk+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Politics',
     },
   ];
@@ -73,7 +73,7 @@ export async function scrapeExpandedPakistanNews(): Promise<ScrapedRawArticle[]>
 
       const $ = cheerio.load(response.data, { xmlMode: true });
 
-      $('item').slice(0, 4).each((_, elem) => {
+      $('item').slice(0, 8).each((_, elem) => {
         const rawTitle = $(elem).find('title').text().trim();
         const link = $(elem).find('link').text().trim();
         const pubDate = $(elem).find('pubDate').text().trim();

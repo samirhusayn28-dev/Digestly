@@ -654,9 +654,21 @@ export async function fetchArticlesFromFirestore(
         };
       });
 
+      // Ensure source diversity: if any source from seed articles is not in fetched, supplement it
+      const existingSources = new Set(
+        fetched.map((a) =>
+          a.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim()
+        )
+      );
+      const supplemental = REALISTIC_SEED_ARTICLES.filter((seed) => {
+        const normSeed = seed.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+        return !existingSources.has(normSeed);
+      });
+      const combined = [...fetched, ...supplemental];
+
       // Sort by user interest priority if on 'All' category
       if (category === 'All' && userInterests.length > 0) {
-        fetched.sort((a, b) => {
+        combined.sort((a, b) => {
           const aMatch = userInterests.includes(a.category) ? 1 : 0;
           const bMatch = userInterests.includes(b.category) ? 1 : 0;
           return bMatch - aMatch;
@@ -667,7 +679,7 @@ export async function fetchArticlesFromFirestore(
       const hasMore = docs.length === pageSize;
 
       return {
-        articles: fetched,
+        articles: combined,
         lastDoc: nextLastDoc,
         hasMore,
       };

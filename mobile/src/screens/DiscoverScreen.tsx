@@ -19,9 +19,10 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList, RootStackParamList, Article } from '../navigation/types';
-import { fetchArticlesFromFirestore } from '../services/articles';
+import { fetchArticlesFromFirestore, REALISTIC_SEED_ARTICLES } from '../services/articles';
 import { useTheme } from '../theme';
 import { DiscoverSkeleton } from '../components/common/SkeletonLoader';
+import { getArticleImageUri } from '../utils/imageHelper';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, 'Discover'>,
@@ -100,7 +101,7 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
       try {
         const res = await fetchArticlesFromFirestore({
           category: selectedCategory === 'All' ? 'All' : selectedCategory,
-          pageSize: 20,
+          pageSize: 60,
         });
         setArticles(res.articles);
       } catch (err) {
@@ -174,7 +175,23 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
       return true;
     });
 
-    // 5. Sorting
+    // 5. Fallback if specific source yielded 0 results from active batch
+    if (list.length === 0 && selectedSource !== 'all') {
+      const targetSrc = selectedSource.toLowerCase();
+      const normTarget = targetSrc.replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+      list = REALISTIC_SEED_ARTICLES.filter((item) => {
+        const itemSrc = item.sourceName.toLowerCase();
+        const normItem = itemSrc.replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+        return (
+          itemSrc.includes(targetSrc) ||
+          targetSrc.includes(itemSrc) ||
+          normItem.includes(normTarget) ||
+          normTarget.includes(normItem)
+        );
+      });
+    }
+
+    // 6. Sorting
     if (sortBy === 'multi') {
       list = [...list].sort((a, b) => (b.relatedSources?.length || 0) - (a.relatedSources?.length || 0));
     } else if (sortBy === 'breaking') {
@@ -348,18 +365,12 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
                         onPress={() => navigation.navigate('ArticleDetail', { article: art })}
                         style={styles.splitCard}
                       >
-                        {art.imageUrl ? (
-                          <Image
-                            source={{ uri: art.imageUrl }}
-                            style={styles.splitCardImage}
-                            contentFit="cover"
-                            transition={200}
-                          />
-                        ) : (
-                          <View style={styles.splitFallback}>
-                            <Ionicons name="newspaper-outline" size={24} color="#64748B" />
-                          </View>
-                        )}
+                        <Image
+                          source={{ uri: getArticleImageUri(art) }}
+                          style={styles.splitCardImage}
+                          contentFit="cover"
+                          transition={200}
+                        />
                         <View style={styles.splitCardContent}>
                           <View style={styles.splitBadge}>
                             <Text style={styles.splitBadgeText}>{art.category}</Text>
@@ -421,14 +432,12 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
                 </Text>
               </View>
 
-              {item.imageUrl && (
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={styles.listItemThumbnail}
-                  contentFit="cover"
-                  transition={200}
-                />
-              )}
+              <Image
+                source={{ uri: getArticleImageUri(item) }}
+                style={styles.listItemThumbnail}
+                contentFit="cover"
+                transition={200}
+              />
             </TouchableOpacity>
           )}
         />

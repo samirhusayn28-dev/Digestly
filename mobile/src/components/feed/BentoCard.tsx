@@ -20,6 +20,7 @@ import { Article } from '../../navigation/types';
 import { useTheme } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { translateArticleContent } from '../../services/translation';
+import { getCategoryFallbackUri } from '../../utils/imageHelper';
 
 interface BentoCardProps {
   article: Article;
@@ -116,27 +117,17 @@ export const BentoCard: React.FC<BentoCardProps> = ({
         >
           {/* Image Container with overlay */}
           <View style={styles.heroImageWrap}>
-            {!imageError && article.imageUrl ? (
-              <Image
-                source={{ uri: article.imageUrl }}
-                style={styles.heroImage}
-                contentFit="cover"
-                transition={250}
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.heroImageFallback,
-                  { backgroundColor: isDark ? '#1E2536' : '#E2E8F0' },
-                ]}
-              >
-                <Ionicons name="newspaper-outline" size={32} color={colors.textTertiary} />
-                <Text style={[typography.caption, { color: colors.textTertiary, marginTop: 4 }]}>
-                  {article.sourceName}
-                </Text>
-              </View>
-            )}
+            <Image
+              source={{
+                uri: !imageError && article.imageUrl
+                  ? article.imageUrl
+                  : getCategoryFallbackUri(article.category, article.id),
+              }}
+              style={styles.heroImage}
+              contentFit="cover"
+              transition={250}
+              onError={() => setImageError(true)}
+            />
 
             {/* Gradient-like dark tint for legibility */}
             <View style={styles.heroGradientOverlay} />
