@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StatusBar,
   useWindowDimensions,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -87,6 +88,7 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
   const [selectedSource, setSelectedSource] = useState('all');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Advanced Filter Sheet State (Point 4)
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
@@ -95,24 +97,34 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const isTablet = width >= 768;
 
-  useEffect(() => {
-    async function loadCategoryArticles() {
-      setLoading(true);
+  const loadCategoryArticles = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       try {
         const res = await fetchArticlesFromFirestore({
           category: selectedCategory === 'All' ? 'All' : selectedCategory,
           pageSize: 60,
+          source: selectedSource !== 'all' ? selectedSource : undefined,
+          forceRefresh: isRefresh,
         });
         setArticles(res.articles);
       } catch (err) {
         console.warn('Discover load error:', err);
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
-    }
+    },
+    [selectedCategory, selectedSource]
+  );
 
-    loadCategoryArticles();
-  }, [selectedCategory]);
+  useEffect(() => {
+    loadCategoryArticles(false);
+  }, [loadCategoryArticles]);
 
   const handleCategoryPress = (cat: string) => {
     Haptics.selectionAsync();
@@ -341,6 +353,17 @@ export const DiscoverScreen: React.FC<Props> = ({ navigation, route }) => {
         <FlatList
           data={restArticles}
           keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                loadCategoryArticles(true);
+              }}
+              tintColor="#38BDF8"
+              colors={['#38BDF8']}
+            />
+          }
           contentContainerStyle={[
             styles.listContent,
             {

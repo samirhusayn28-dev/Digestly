@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -108,6 +109,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           category: categoryParam,
           pageSize: 12,
           userInterests: selectedInterests,
+          forceRefresh: isRefresh,
         });
 
         setArticles(res.articles);
@@ -371,6 +373,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           ref={flatListRef}
           data={filteredNewsArticles}
           keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#38BDF8"
+              colors={['#38BDF8']}
+            />
+          }
           contentContainerStyle={[
             styles.listContent,
             {

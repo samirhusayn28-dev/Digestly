@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Article } from '../navigation/types';
+import { getLiveNewsArticles } from './liveNewsService';
 
 export const REALISTIC_SEED_ARTICLES: Article[] = [
   {
@@ -566,6 +567,8 @@ export interface FetchArticlesParams {
   pageSize?: number;
   lastDoc?: DocumentSnapshot | null;
   userInterests?: string[];
+  source?: string;
+  forceRefresh?: boolean;
 }
 
 export interface FetchArticlesResult {
@@ -596,12 +599,36 @@ export async function seedFirestoreArticlesIfEmpty(): Promise<void> {
   }
 }
 
-// Fetch articles from Firestore with pagination and interest weighting
+// Fetch articles from Firestore with hybrid live in-app news fallback
 export async function fetchArticlesFromFirestore(
   params: FetchArticlesParams = {}
 ): Promise<FetchArticlesResult> {
-  const { category = 'All', pageSize = 4, lastDoc = null, userInterests = [] } = params;
+  const {
+    category = 'All',
+    pageSize = 12,
+    lastDoc = null,
+    userInterests = [],
+    source = 'all',
+    forceRefresh = false,
+  } = params;
 
+  // 1. Direct Real-Time Live Fetch when user pulls to refresh
+  if (forceRefresh) {
+    try {
+      const live = await getLiveNewsArticles({ category, source, forceRefresh: true });
+      if (live && live.length > 0) {
+        return {
+          articles: live.slice(0, pageSize),
+          lastDoc: null,
+          hasMore: live.length > pageSize,
+        };
+      }
+    } catch (liveErr) {
+      console.warn('[HybridNews] Live fetch on refresh failed, falling back:', liveErr);
+    }
+  }
+
+  // 2. Query Firestore for AI-processed articles
   try {
     const articlesCol = collection(db, 'articles');
     let q;
@@ -654,6 +681,26 @@ export async function fetchArticlesFromFirestore(
         };
       });
 
+      // Check freshness: if latest article is older than 2 hours, supplement with live news
+      const latestScrapedAt = new Date(fetched[0].scrapedAt).getTime();
+      const isStale = isNaN(latestScrapedAt) || Date.now() - latestScrapedAt > 2 * 60 * 60 * 1000;
+
+      if (isStale) {
+        try {
+          const live = await getLiveNewsArticles({ category, source });
+          if (live && live.length > 0) {
+            const combined = [...live, ...fetched];
+            return {
+              articles: combined.slice(0, pageSize),
+              lastDoc: docs[docs.length - 1],
+              hasMore: true,
+            };
+          }
+        } catch {
+          // Proceed with fetched
+        }
+      }
+
       // Ensure source diversity: if any source from seed articles is not in fetched, supplement it
       const existingSources = new Set(
         fetched.map((a) =>
@@ -685,15 +732,28 @@ export async function fetchArticlesFromFirestore(
       };
     }
   } catch (err) {
-    console.warn('Firestore fetch query failed, serving realistic seed data:', err);
+    console.warn('Firestore fetch query failed, checking live news fallback:', err);
   }
 
-  // Graceful fallback using local high quality seed articles
+  // 3. Direct In-App Live News Fallback (if Firestore is empty or fails)
+  try {
+    const live = await getLiveNewsArticles({ category, source });
+    if (live && live.length > 0) {
+      return {
+        articles: live.slice(0, pageSize),
+        lastDoc: null,
+        hasMore: live.length > pageSize,
+      };
+    }
+  } catch (liveFallbackErr) {
+    console.warn('Live fallback failed, serving realistic seed data:', liveFallbackErr);
+  }
+
+  // 4. Offline seed fallback
   let filtered = REALISTIC_SEED_ARTICLES;
   if (category !== 'All') {
     filtered = filtered.filter((a) => a.category === category);
   } else if (userInterests.length > 0) {
-    // Priority sort by user interests
     filtered = [...filtered].sort((a, b) => {
       const aMatch = userInterests.includes(a.category) ? 1 : 0;
       const bMatch = userInterests.includes(b.category) ? 1 : 0;
