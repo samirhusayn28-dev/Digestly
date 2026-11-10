@@ -9,6 +9,7 @@ import {
   StatusBar,
   Alert,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -26,6 +27,12 @@ import {
   registerForPushNotificationsAsync,
   scheduleBreakingNewsNotification,
 } from '../services/notifications';
+import {
+  checkForAppUpdate,
+  downloadAndInstallUpdate,
+  AppUpdateInfo,
+} from '../services/updateService';
+import { CURRENT_APP_VERSION, CURRENT_APP_VERSION_CODE } from '../config/version';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, 'Settings'>,
@@ -126,6 +133,33 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         ...notificationPrefs,
         notificationsEnabled: false,
       }).catch((e) => console.warn('Could not sync push notification pref:', e));
+    }
+  };
+
+  // App Update State
+  const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'latest' | 'available'>('idle');
+  const [latestUpdateInfo, setLatestUpdateInfo] = useState<AppUpdateInfo | null>(null);
+
+  const handleCheckForUpdates = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setUpdateState('checking');
+    try {
+      const info = await checkForAppUpdate();
+      if (info.updateAvailable) {
+        setLatestUpdateInfo(info);
+        setUpdateState('available');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        setUpdateState('latest');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Up to Date',
+          `You are using the latest version of Digestly (v${CURRENT_APP_VERSION}).`
+        );
+      }
+    } catch {
+      setUpdateState('idle');
+      Alert.alert('Update Check Failed', 'Could not reach update server. Check your network connection.');
     }
   };
 
@@ -473,7 +507,74 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* SECTION 4: RESET / LOGOUT */}
+        {/* SECTION 4: APP UPDATES */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeading, { color: colors.textTertiary }]}>
+            APP UPDATES
+          </Text>
+
+          <View style={[styles.updateCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.updateCardTop}>
+              <View style={[styles.prefIconBox, { backgroundColor: 'rgba(56, 189, 248, 0.12)' }]}>
+                <Ionicons name="cloud-download-outline" size={18} color="#38BDF8" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.prefTitle, { color: colors.textPrimary }]}>
+                  Digestly v{CURRENT_APP_VERSION}
+                </Text>
+                <Text style={[styles.prefSubtitle, { color: colors.textTertiary }]}>
+                  Build {CURRENT_APP_VERSION_CODE} • Standalone Android
+                </Text>
+              </View>
+
+              {updateState === 'available' ? (
+                <View style={styles.updateBadgeAvailable}>
+                  <Text style={styles.updateBadgeTextAvailable}>NEW UPDATE</Text>
+                </View>
+              ) : updateState === 'latest' ? (
+                <View style={styles.updateBadgeLatest}>
+                  <Ionicons name="checkmark-circle" size={12} color="#10B981" style={{ marginRight: 3 }} />
+                  <Text style={styles.updateBadgeTextLatest}>UP TO DATE</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {updateState === 'available' && latestUpdateInfo ? (
+              <View style={styles.updateAvailableBanner}>
+                <Text style={styles.updateBannerTitle}>Version v{latestUpdateInfo.latestVersion} Available</Text>
+                <Text style={styles.updateBannerDesc} numberOfLines={3}>
+                  {latestUpdateInfo.releaseNotes || 'New real-time news architecture and performance enhancements.'}
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => downloadAndInstallUpdate(latestUpdateInfo.downloadUrl)}
+                  style={styles.updateNowBtn}
+                >
+                  <Ionicons name="download-outline" size={15} color="#07090E" style={{ marginRight: 6 }} />
+                  <Text style={styles.updateNowBtnText}>Download & Install v{latestUpdateInfo.latestVersion}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleCheckForUpdates}
+                disabled={updateState === 'checking'}
+                style={styles.checkUpdateBtn}
+              >
+                {updateState === 'checking' ? (
+                  <ActivityIndicator size="small" color="#38BDF8" />
+                ) : (
+                  <>
+                    <Ionicons name="refresh" size={14} color="#38BDF8" style={{ marginRight: 6 }} />
+                    <Text style={styles.checkUpdateBtnText}>Check for Updates</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* SECTION 5: RESET / LOGOUT */}
         <View style={styles.section}>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -487,11 +588,11 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* SECTION 5: FOOTER ATTRIBUTION */}
+        {/* SECTION 6: FOOTER ATTRIBUTION */}
         <View style={styles.footerContainer}>
           <DigestlyWordmark size="md" />
           <Text style={[styles.appVersion, { color: colors.textPrimary }]}>
-            DIGESTLY v1.3.0
+            DIGESTLY v{CURRENT_APP_VERSION}
           </Text>
           <Text style={[styles.appDescription, { color: colors.textTertiary }]}>
             Editorial news aggregator summarizing Dawn, The Express Tribune, Geo News, BBC World & Al Jazeera
@@ -799,5 +900,92 @@ const styles = StyleSheet.create({
   makerText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  updateCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  updateCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  updateBadgeAvailable: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  updateBadgeTextAvailable: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#38BDF8',
+    letterSpacing: 0.5,
+  },
+  updateBadgeLatest: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  updateBadgeTextLatest: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: 0.5,
+  },
+  checkUpdateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  checkUpdateBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  updateAvailableBanner: {
+    backgroundColor: 'rgba(56, 189, 248, 0.06)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+    padding: 10,
+    gap: 8,
+  },
+  updateBannerTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#38BDF8',
+  },
+  updateBannerDesc: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: '#94A3B8',
+  },
+  updateNowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#38BDF8',
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  updateNowBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#07090E',
   },
 });

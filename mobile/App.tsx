@@ -22,6 +22,7 @@ import {
 } from '@expo-google-fonts/playfair-display';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useTheme } from './src/theme';
+import { UpdateModal } from './src/components/common/UpdateModal';
 
 import { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -57,6 +58,7 @@ function AppContent() {
     <NavigationContainer>
       <StatusBar style="light" />
       <RootNavigator />
+      <UpdateModal />
     </NavigationContainer>
   );
 }
