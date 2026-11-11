@@ -15,17 +15,17 @@ export async function scrapeExpandedPakistanNews(): Promise<ScrapedRawArticle[]>
   const feeds: NewsFeedConfig[] = [
     {
       sourceName: 'The News International',
-      url: 'https://www.thenews.com.pk/rss/1/1',
+      url: 'https://news.google.com/rss/search?q=source:%22The+News+International%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Politics',
     },
     {
       sourceName: 'Business Recorder',
-      url: 'https://www.brecorder.com/feeds/latest-news/',
+      url: 'https://news.google.com/rss/search?q=source:%22Business+Recorder%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Business & Economy',
     },
     {
       sourceName: 'ARY News',
-      url: 'https://arynews.tv/feed/',
+      url: 'https://news.google.com/rss/search?q=source:%22ARY+News%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
       defaultCategory: 'Politics',
     },
     {

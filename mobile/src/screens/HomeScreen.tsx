@@ -60,10 +60,22 @@ interface SourceFilterItem {
 const SOURCE_FILTERS: SourceFilterItem[] = [
   { id: 'all', label: 'All Sources', icon: 'globe-outline' },
   { id: 'Dawn', label: 'Dawn', icon: 'newspaper-outline' },
-  { id: 'Tribune', label: 'Tribune', icon: 'newspaper-outline' },
+  { id: 'Tribune', label: 'Express Tribune', icon: 'newspaper-outline' },
   { id: 'Geo News', label: 'Geo News', icon: 'tv-outline' },
+  { id: 'The News', label: 'The News', icon: 'newspaper-outline' },
+  { id: 'Business Recorder', label: 'Business Recorder', icon: 'trending-up-outline' },
+  { id: 'ARY News', label: 'ARY News', icon: 'tv-outline' },
+  { id: 'Samaa TV', label: 'Samaa TV', icon: 'tv-outline' },
+  { id: 'Dunya News', label: 'Dunya News', icon: 'tv-outline' },
+  { id: '92 News', label: '92 News', icon: 'newspaper-outline' },
+  { id: 'Pakistan Today', label: 'Pakistan Today', icon: 'newspaper-outline' },
+  { id: 'Daily Times', label: 'Daily Times', icon: 'newspaper-outline' },
+  { id: 'The Nation', label: 'The Nation', icon: 'newspaper-outline' },
   { id: 'BBC World', label: 'BBC World', icon: 'radio-outline' },
   { id: 'Al Jazeera', label: 'Al Jazeera', icon: 'earth-outline' },
+  { id: 'Reuters', label: 'Reuters', icon: 'globe-outline' },
+  { id: 'Associated Press', label: 'Associated Press', icon: 'globe-outline' },
+  { id: 'CNN', label: 'CNN', icon: 'tv-outline' },
 ];
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -107,8 +119,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         const categoryParam = activeFilter === 'All' ? 'All' : activeFilter;
         const res = await fetchArticlesFromFirestore({
           category: categoryParam,
-          pageSize: 12,
+          pageSize: 20,
           userInterests: selectedInterests,
+          source: selectedSource !== 'all' ? selectedSource : undefined,
           forceRefresh: isRefresh,
         });
 
@@ -123,7 +136,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         setRefreshing(false);
       }
     },
-    [activeFilter, selectedInterests]
+    [activeFilter, selectedInterests, selectedSource]
   );
 
   useEffect(() => {
@@ -141,9 +154,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       setLoadingMore(true);
       const res = await fetchArticlesFromFirestore({
         category: activeFilter === 'All' ? 'All' : activeFilter,
-        pageSize: 6,
+        pageSize: 10,
         lastDoc,
         userInterests: selectedInterests,
+        source: selectedSource !== 'all' ? selectedSource : undefined,
       });
 
       setArticles((prev) => [...prev, ...res.articles]);
@@ -182,14 +196,18 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const sourceFilteredArticles = React.useMemo(() => {
     if (selectedSource === 'all') return articles;
+    const target = selectedSource.toLowerCase();
+    const normTarget = target.replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+
     return articles.filter((a) => {
       const src = a.sourceName.toLowerCase();
-      if (selectedSource === 'Dawn') return src.includes('dawn');
-      if (selectedSource === 'Tribune') return src.includes('tribune');
-      if (selectedSource === 'Geo News') return src.includes('geo');
-      if (selectedSource === 'BBC World') return src.includes('bbc');
-      if (selectedSource === 'Al Jazeera') return src.includes('jazeera');
-      return src.includes(selectedSource.toLowerCase());
+      const normSrc = src.replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+      return (
+        src.includes(target) ||
+        target.includes(src) ||
+        normSrc.includes(normTarget) ||
+        normTarget.includes(normSrc)
+      );
     });
   }, [articles, selectedSource]);
 

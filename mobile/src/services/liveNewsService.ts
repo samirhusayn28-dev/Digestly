@@ -14,7 +14,7 @@ interface LiveFeedSource {
 }
 
 const LIVE_FEEDS: LiveFeedSource[] = [
-  // Top Pakistani Outlets
+  // Top Pakistani Outlets (All 12)
   {
     sourceName: 'Dawn',
     category: 'Politics',
@@ -23,27 +23,27 @@ const LIVE_FEEDS: LiveFeedSource[] = [
   {
     sourceName: 'The Express Tribune',
     category: 'Politics',
-    url: 'https://tribune.com.pk/feed/latest',
+    url: 'https://news.google.com/rss/search?q=source:%22The+Express+Tribune%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
   },
   {
     sourceName: 'Geo News',
     category: 'Politics',
-    url: 'https://www.geo.tv/rss/1/1',
+    url: 'https://news.google.com/rss/search?q=source:%22Geo+News%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
   },
   {
     sourceName: 'The News International',
     category: 'Politics',
-    url: 'https://www.thenews.com.pk/rss/1/1',
+    url: 'https://news.google.com/rss/search?q=source:%22The+News+International%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
   },
   {
     sourceName: 'Business Recorder',
     category: 'Business & Economy',
-    url: 'https://www.brecorder.com/feeds/latest-news/',
+    url: 'https://news.google.com/rss/search?q=source:%22Business+Recorder%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
   },
   {
     sourceName: 'ARY News',
     category: 'Politics',
-    url: 'https://arynews.tv/feed/',
+    url: 'https://news.google.com/rss/search?q=source:%22ARY+News%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
   },
   {
     sourceName: 'Samaa TV',
@@ -54,6 +54,53 @@ const LIVE_FEEDS: LiveFeedSource[] = [
     sourceName: 'Dunya News',
     category: 'Politics',
     url: 'https://news.google.com/rss/search?q=site:dunyanews.tv+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
+  },
+  {
+    sourceName: '92 News',
+    category: 'Politics',
+    url: 'https://news.google.com/rss/search?q=site:92newshd.tv+when:3d&hl=en-PK&gl=PK&ceid=PK:en',
+  },
+  {
+    sourceName: 'Pakistan Today',
+    category: 'Politics',
+    url: 'https://news.google.com/rss/search?q=site:pakistantoday.com.pk+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
+  },
+  {
+    sourceName: 'Daily Times',
+    category: 'Politics',
+    url: 'https://news.google.com/rss/search?q=site:dailytimes.com.pk+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
+  },
+  {
+    sourceName: 'The Nation',
+    category: 'Politics',
+    url: 'https://news.google.com/rss/search?q=site:nation.com.pk+when:2d&hl=en-PK&gl=PK&ceid=PK:en',
+  },
+
+  // International Outlets (5)
+  {
+    sourceName: 'BBC World',
+    category: 'World',
+    url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
+  },
+  {
+    sourceName: 'Al Jazeera',
+    category: 'World',
+    url: 'https://news.google.com/rss/search?q=source:%22Al+Jazeera%22+when:1d&hl=en-US&gl=US&ceid=US:en',
+  },
+  {
+    sourceName: 'Reuters',
+    category: 'World',
+    url: 'https://news.google.com/rss/search?q=source:Reuters+when:1d&hl=en-US&gl=US&ceid=US:en',
+  },
+  {
+    sourceName: 'Associated Press',
+    category: 'World',
+    url: 'https://news.google.com/rss/search?q=source:%22Associated+Press%22+when:1d&hl=en-US&gl=US&ceid=US:en',
+  },
+  {
+    sourceName: 'CNN',
+    category: 'World',
+    url: 'http://rss.cnn.com/rss/edition_world.rss',
   },
 
   // Category Specific Streams
@@ -87,36 +134,9 @@ const LIVE_FEEDS: LiveFeedSource[] = [
     category: 'Science',
     url: 'https://news.google.com/rss/search?q=science+space+when:3d&hl=en-PK&gl=PK&ceid=PK:en',
   },
-
-  // International Outlets
-  {
-    sourceName: 'BBC World',
-    category: 'World',
-    url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
-  },
-  {
-    sourceName: 'CNN',
-    category: 'World',
-    url: 'http://rss.cnn.com/rss/edition_world.rss',
-  },
-  {
-    sourceName: 'Reuters',
-    category: 'World',
-    url: 'https://news.google.com/rss/search?q=source:Reuters+when:1d&hl=en-US&gl=US&ceid=US:en',
-  },
-  {
-    sourceName: 'Al Jazeera',
-    category: 'World',
-    url: 'https://news.google.com/rss/search?q=source:%22Al+Jazeera%22+when:1d&hl=en-US&gl=US&ceid=US:en',
-  },
-  {
-    sourceName: 'Associated Press',
-    category: 'World',
-    url: 'https://news.google.com/rss/search?q=source:%22Associated+Press%22+when:1d&hl=en-US&gl=US&ceid=US:en',
-  },
 ];
 
-const CACHE_KEY = '@digestly_live_news_cache_v2';
+const CACHE_KEY = '@digestly_live_news_cache_v3';
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes cache
 
 // Helper: Calculate relative time (e.g., '12m ago', '2h ago')
@@ -180,8 +200,8 @@ function parseRssFeed(xml: string, feed: LiveFeedSource): Article[] {
     const titleMatch = itemContent.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     let title = titleMatch ? cleanHtmlAndEntities(titleMatch[1]) : '';
     title = title
-      .replace(/\s*-\s*(Dawn|The Express Tribune|Geo News|The News|ARY NEWS|SAMAA TV|Business Recorder|BBC News)\s*$/i, '')
-      .replace(/\s*\|\s*Al Jazeera\s*$/i, '')
+      .replace(/\s*-\s*(Dawn|The Express Tribune|Express Tribune|Geo News|The News International|The News|ARY NEWS|ARY News|SAMAA TV|Samaa TV|Business Recorder|BBC News|BBC World|Dunya News|92 News|Pakistan Today|Daily Times|The Nation|Reuters|Al Jazeera|Associated Press|AP News|CNN)\s*$/i, '')
+      .replace(/\s*\|\s*(Al Jazeera|Reuters|Dawn|CNN|BBC)\s*$/i, '')
       .trim();
 
     if (!title) continue;
@@ -229,7 +249,8 @@ function parseRssFeed(xml: string, feed: LiveFeedSource): Article[] {
       resolvedCategory = 'Health';
     }
 
-    const cleanSourceName = feed.sourceName.replace(/^Google\s+/, '');
+    let cleanSourceName = feed.sourceName.replace(/^Google\s+/, '');
+    if (cleanSourceName.startsWith('Dawn ')) cleanSourceName = 'Dawn';
     const summaryBullets = generateBulletsFromText(title, cleanDesc, cleanSourceName);
     const paragraphSummary = cleanParagraphSummary(cleanDesc, title, cleanSourceName);
 
@@ -306,23 +327,55 @@ export async function getLiveNewsArticles(options: {
 
   // 2. Select relevant feeds to fetch in parallel
   let selectedFeeds = LIVE_FEEDS;
-  if (category !== 'All') {
+  if (source !== 'all') {
+    selectedFeeds = LIVE_FEEDS.filter((f) => {
+      const fSrc = f.sourceName.toLowerCase();
+      const sSrc = source.toLowerCase();
+      const normF = fSrc.replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+      const normS = sSrc.replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+      return fSrc.includes(sSrc) || sSrc.includes(fSrc) || normF.includes(normS) || normS.includes(normF);
+    });
+    if (selectedFeeds.length === 0) {
+      selectedFeeds = LIVE_FEEDS;
+    }
+  } else if (category !== 'All') {
     selectedFeeds = LIVE_FEEDS.filter(
       (f) => f.category.toLowerCase().includes(category.toLowerCase()) || category.toLowerCase().includes(f.category.toLowerCase())
     );
     if (selectedFeeds.length === 0) {
-      selectedFeeds = LIVE_FEEDS.slice(0, 6);
+      selectedFeeds = LIVE_FEEDS;
     }
   }
 
   // Fetch feeds in parallel
   const results = await Promise.allSettled(selectedFeeds.map((feed) => fetchSingleFeed(feed)));
-  const allArticles: Article[] = [];
 
+  // Group by source and interleave round-robin so all sources get equal priority
+  const bySource = new Map<string, Article[]>();
   for (const res of results) {
     if (res.status === 'fulfilled' && res.value.length > 0) {
-      allArticles.push(...res.value);
+      for (const art of res.value) {
+        const src = art.sourceName;
+        if (!bySource.has(src)) {
+          bySource.set(src, []);
+        }
+        bySource.get(src)!.push(art);
+      }
     }
+  }
+
+  const allArticles: Article[] = [];
+  let added = true;
+  let round = 0;
+  while (added) {
+    added = false;
+    for (const [_, arts] of bySource.entries()) {
+      if (round < arts.length) {
+        allArticles.push(arts[round]);
+        added = true;
+      }
+    }
+    round++;
   }
 
   // Deduplicate by title similarity

@@ -129,11 +129,32 @@ export async function runScrapingPipeline(): Promise<{
     }
   }
 
-  // Step 3: Summarize via Groq API (or smart fallback) and format
-  const processedArticles: ProcessedArticle[] = [];
+  // Step 3: Balance raw articles across all sources with round-robin selection
+  const sourceGroups = new Map<string, ScrapedRawArticle[]>();
+  for (const raw of rawArticles) {
+    const src = raw.sourceName;
+    if (!sourceGroups.has(src)) {
+      sourceGroups.set(src, []);
+    }
+    sourceGroups.get(src)!.push(raw);
+  }
 
-  // Process top 25-28 stories per run for comprehensive multi-category coverage
-  const batchToProcess = rawArticles.slice(0, 28);
+  const balancedRawArticles: ScrapedRawArticle[] = [];
+  let added = true;
+  let round = 0;
+  while (added && balancedRawArticles.length < 50) {
+    added = false;
+    for (const [_, arts] of sourceGroups.entries()) {
+      if (round < arts.length && balancedRawArticles.length < 50) {
+        balancedRawArticles.push(arts[round]);
+        added = true;
+      }
+    }
+    round++;
+  }
+
+  const batchToProcess = balancedRawArticles.length > 0 ? balancedRawArticles : rawArticles.slice(0, 28);
+  const processedArticles: ProcessedArticle[] = [];
 
   for (const raw of batchToProcess) {
     try {

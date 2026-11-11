@@ -112,6 +112,47 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
     }
   }
 
+  // Fallback to Google News RSS bridge if direct feeds return 0
+  if (articles.length === 0) {
+    try {
+      const fallbackUrl = 'https://news.google.com/rss/search?q=source:%22The+Express+Tribune%22+when:2d&hl=en-PK&gl=PK&ceid=PK:en';
+      const fallbackRes = await axios.get(fallbackUrl, {
+        timeout: 8000,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          Accept: 'application/rss+xml, application/xml, text/xml, */*',
+        },
+      });
+      const $fb = cheerio.load(fallbackRes.data, { xmlMode: true });
+      $fb('item').slice(0, 10).each((_, elem) => {
+        const rawTitle = $fb(elem).find('title').text().trim();
+        const link = $fb(elem).find('link').text().trim();
+        const pubDate = $fb(elem).find('pubDate').text().trim();
+        const rawDescription = $fb(elem).find('description').text().trim();
+        const title = rawTitle.replace(/\s*-\s*The Express Tribune.*$/i, '').trim();
+
+        const desc$ = cheerio.load(rawDescription);
+        let bodySnippet = desc$.text().replace(/<[^>]+>/g, ' ').replace(/https?:\/\/[^\s"'<>]+/gi, '').replace(/\s+/g, ' ').trim();
+        if (bodySnippet.length < 25) bodySnippet = title;
+
+        if (title && link) {
+          articles.push({
+            title,
+            body: bodySnippet || title,
+            sourceName: 'The Express Tribune',
+            sourceUrl: link,
+            category: 'Politics',
+            imageUrl: getFallbackImageForCategory('Politics'),
+            publishedAt: pubDate || 'Recently',
+          });
+        }
+      });
+    } catch (fbErr) {
+      console.warn('Tribune Google News fallback failed:', fbErr);
+    }
+  }
+
   // Deduplicate by title
   const seen = new Set<string>();
   const uniqueArticles = articles.filter((a) => {

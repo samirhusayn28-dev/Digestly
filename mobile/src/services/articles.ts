@@ -604,6 +604,41 @@ export async function seedFirestoreArticlesIfEmpty(): Promise<void> {
   }
 }
 
+/**
+ * Interleave articles round-robin by source name so no single publisher dominates the feed
+ */
+export function interleaveBySource(articles: Article[]): Article[] {
+  const groups = new Map<string, Article[]>();
+  for (const art of articles) {
+    const key = (art.sourceName || 'General')
+      .toLowerCase()
+      .replace(/^(the\s+)/, '')
+      .replace(/\s+(news|tv|hd|international|today|times)\b/g, '')
+      .trim();
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key)!.push(art);
+  }
+
+  const result: Article[] = [];
+  let added = true;
+  let index = 0;
+
+  while (added) {
+    added = false;
+    for (const [_, list] of groups.entries()) {
+      if (index < list.length) {
+        result.push(list[index]);
+        added = true;
+      }
+    }
+    index++;
+  }
+
+  return result;
+}
+
 // Fetch articles from Firestore with hybrid live in-app news fallback
 export async function fetchArticlesFromFirestore(
   params: FetchArticlesParams = {}
@@ -622,10 +657,20 @@ export async function fetchArticlesFromFirestore(
     try {
       const live = await getLiveNewsArticles({ category, source, forceRefresh: true });
       if (live && live.length > 0) {
+        const presentSources = new Set(
+          live.map((a) =>
+            a.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim()
+          )
+        );
+        const supplemental = REALISTIC_SEED_ARTICLES.filter((seed) => {
+          const normSeed = seed.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+          return !presentSources.has(normSeed);
+        });
+        const balanced = interleaveBySource([...live, ...supplemental]);
         return {
-          articles: live.slice(0, pageSize),
+          articles: balanced.slice(0, pageSize),
           lastDoc: null,
-          hasMore: live.length > pageSize,
+          hasMore: balanced.length > pageSize,
         };
       }
     } catch (liveErr) {
@@ -697,25 +742,22 @@ export async function fetchArticlesFromFirestore(
       const latestScrapedAt = new Date(fetched[0].scrapedAt).getTime();
       const isStale = isNaN(latestScrapedAt) || Date.now() - latestScrapedAt > 2 * 60 * 60 * 1000;
 
+      let combinedPool = fetched;
+
       if (isStale) {
         try {
           const live = await getLiveNewsArticles({ category, source });
           if (live && live.length > 0) {
-            const combined = [...live, ...fetched];
-            return {
-              articles: combined.slice(0, pageSize),
-              lastDoc: docs[docs.length - 1],
-              hasMore: true,
-            };
+            combinedPool = [...live, ...fetched];
           }
         } catch {
           // Proceed with fetched
         }
       }
 
-      // Ensure source diversity: if any source from seed articles is not in fetched, supplement it
+      // Ensure source diversity: if any source from seed articles is not in combinedPool, supplement it
       const existingSources = new Set(
-        fetched.map((a) =>
+        combinedPool.map((a) =>
           a.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim()
         )
       );
@@ -723,7 +765,16 @@ export async function fetchArticlesFromFirestore(
         const normSeed = seed.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
         return !existingSources.has(normSeed);
       });
-      const combined = [...fetched, ...supplemental];
+      let combined = interleaveBySource([...combinedPool, ...supplemental]);
+
+      // Filter by source if requested
+      if (source !== 'all') {
+        const targetSrc = source.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+        combined = combined.filter((item) => {
+          const itemSrc = item.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+          return itemSrc.includes(targetSrc) || targetSrc.includes(itemSrc);
+        });
+      }
 
       // Sort by user interest priority if on 'All' category
       if (category === 'All' && userInterests.length > 0) {
@@ -738,7 +789,7 @@ export async function fetchArticlesFromFirestore(
       const hasMore = docs.length === pageSize;
 
       return {
-        articles: combined,
+        articles: combined.slice(0, pageSize),
         lastDoc: nextLastDoc,
         hasMore,
       };
@@ -751,10 +802,20 @@ export async function fetchArticlesFromFirestore(
   try {
     const live = await getLiveNewsArticles({ category, source });
     if (live && live.length > 0) {
+      const presentSources = new Set(
+        live.map((a) =>
+          a.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim()
+        )
+      );
+      const supplemental = REALISTIC_SEED_ARTICLES.filter((seed) => {
+        const normSeed = seed.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+        return !presentSources.has(normSeed);
+      });
+      const balanced = interleaveBySource([...live, ...supplemental]);
       return {
-        articles: live.slice(0, pageSize),
+        articles: balanced.slice(0, pageSize),
         lastDoc: null,
-        hasMore: live.length > pageSize,
+        hasMore: balanced.length > pageSize,
       };
     }
   } catch (liveFallbackErr) {
@@ -765,7 +826,15 @@ export async function fetchArticlesFromFirestore(
   let filtered = REALISTIC_SEED_ARTICLES;
   if (category !== 'All') {
     filtered = filtered.filter((a) => a.category === category);
-  } else if (userInterests.length > 0) {
+  }
+  if (source !== 'all') {
+    const target = source.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+    filtered = filtered.filter((a) => {
+      const s = a.sourceName.toLowerCase().replace(/^(the\s+)/, '').replace(/\s+(news|tv|hd|international|today|times)\b/g, '').trim();
+      return s.includes(target) || target.includes(s);
+    });
+  }
+  if (category === 'All' && userInterests.length > 0) {
     filtered = [...filtered].sort((a, b) => {
       const aMatch = userInterests.includes(a.category) ? 1 : 0;
       const bMatch = userInterests.includes(b.category) ? 1 : 0;
@@ -774,7 +843,7 @@ export async function fetchArticlesFromFirestore(
   }
 
   return {
-    articles: filtered,
+    articles: interleaveBySource(filtered),
     lastDoc: null,
     hasMore: false,
   };
