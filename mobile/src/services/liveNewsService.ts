@@ -1,6 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Article } from '../navigation/types';
 import { getCategoryFallbackUri } from '../utils/imageHelper';
+import {
+  cleanHtmlAndEntities,
+  cleanParagraphSummary,
+  cleanSummaryBullets,
+} from '../utils/textCleaner';
 
 interface LiveFeedSource {
   sourceName: string;
@@ -111,7 +116,7 @@ const LIVE_FEEDS: LiveFeedSource[] = [
   },
 ];
 
-const CACHE_KEY = '@digestly_live_news_cache_v1';
+const CACHE_KEY = '@digestly_live_news_cache_v2';
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes cache
 
 // Helper: Calculate relative time (e.g., '12m ago', '2h ago')
@@ -151,34 +156,14 @@ function cleanHtml(html: string): string {
 }
 
 // Generate 3 concise summary bullets from article title and description
-function generateBulletsFromText(title: string, desc: string): string[] {
-  const cleanDesc = cleanHtml(desc);
-  const sentences = cleanDesc
+function generateBulletsFromText(title: string, desc: string, sourceName: string): string[] {
+  const cleanDesc = cleanHtmlAndEntities(desc);
+  const rawSentences = cleanDesc
     .split(/(?<=[.?!])\s+/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 20);
+    .filter((s) => s.length > 25 && !/^https?:\/\//i.test(s));
 
-  if (sentences.length >= 3) {
-    return [sentences[0], sentences[1], sentences[2]];
-  } else if (sentences.length === 2) {
-    return [
-      sentences[0],
-      sentences[1],
-      `${title} represents a notable development reported across national coverage.`,
-    ];
-  } else if (sentences.length === 1) {
-    return [
-      sentences[0],
-      `${title} was published with urgent priority by regional editorial desks.`,
-      'Ongoing developments are being monitored as additional context emerges.',
-    ];
-  }
-
-  return [
-    title,
-    'Official representatives released preliminary information regarding this development.',
-    'Further analytical commentary and sector reactions are anticipated shortly.',
-  ];
+  return cleanSummaryBullets(rawSentences, title, sourceName);
 }
 
 // Parse single RSS/Atom XML string into Article array
@@ -193,7 +178,7 @@ function parseRssFeed(xml: string, feed: LiveFeedSource): Article[] {
 
     // Title
     const titleMatch = itemContent.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    let title = titleMatch ? cleanHtml(titleMatch[1]) : '';
+    let title = titleMatch ? cleanHtmlAndEntities(titleMatch[1]) : '';
     title = title
       .replace(/\s*-\s*(Dawn|The Express Tribune|Geo News|The News|ARY NEWS|SAMAA TV|Business Recorder|BBC News)\s*$/i, '')
       .replace(/\s*\|\s*Al Jazeera\s*$/i, '')
@@ -203,7 +188,7 @@ function parseRssFeed(xml: string, feed: LiveFeedSource): Article[] {
 
     // Link
     const linkMatch = itemContent.match(/<link[^>]*>([\s\S]*?)<\/link>/i) || itemContent.match(/<guid[^>]*>([\s\S]*?)<\/guid>/i);
-    const sourceUrl = linkMatch ? cleanHtml(linkMatch[1]) : 'https://www.google.com';
+    const sourceUrl = linkMatch ? cleanHtmlAndEntities(linkMatch[1]) : 'https://www.google.com';
 
     // PubDate
     const pubDateMatch = itemContent.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i);
@@ -212,7 +197,7 @@ function parseRssFeed(xml: string, feed: LiveFeedSource): Article[] {
     // Description
     const descMatch = itemContent.match(/<description[^>]*>([\s\S]*?)<\/description>/i);
     const rawDesc = descMatch ? descMatch[1] : '';
-    const cleanDesc = cleanHtml(rawDesc);
+    const cleanDesc = cleanHtmlAndEntities(rawDesc);
 
     // Image URL extraction
     let imageUrl: string | null = null;
@@ -244,15 +229,17 @@ function parseRssFeed(xml: string, feed: LiveFeedSource): Article[] {
       resolvedCategory = 'Health';
     }
 
-    const summaryBullets = generateBulletsFromText(title, cleanDesc);
+    const cleanSourceName = feed.sourceName.replace(/^Google\s+/, '');
+    const summaryBullets = generateBulletsFromText(title, cleanDesc, cleanSourceName);
+    const paragraphSummary = cleanParagraphSummary(cleanDesc, title, cleanSourceName);
 
     articles.push({
       id: articleId,
       title,
       summary: summaryBullets,
-      paragraphSummary: cleanDesc.length > 50 ? cleanDesc : `${title}. Reported live by ${feed.sourceName}.`,
-      highlightPhrases: [feed.sourceName, resolvedCategory],
-      sourceName: feed.sourceName.replace(/^Google\s+/, ''),
+      paragraphSummary,
+      highlightPhrases: [cleanSourceName, resolvedCategory],
+      sourceName: cleanSourceName,
       sourceUrl,
       category: resolvedCategory,
       imageUrl: finalImage,

@@ -32,6 +32,11 @@ import { useAppStore } from '../store/useAppStore';
 import { translateArticleContent } from '../services/translation';
 import { ArticleDetailSkeleton } from '../components/common/SkeletonLoader';
 import { getArticleImageUri } from '../utils/imageHelper';
+import {
+  cleanHtmlAndEntities,
+  cleanParagraphSummary,
+  cleanSummaryBullets,
+} from '../utils/textCleaner';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ArticleDetail'>;
 
@@ -47,14 +52,20 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const bookmarkedIds = useAppStore((state) => state.bookmarkedIds);
   const toggleBookmark = useAppStore((state) => state.toggleBookmark);
 
+  const initialCleanTitle = cleanHtmlAndEntities(article.title);
+  const initialCleanSummary = cleanSummaryBullets(article.summary, initialCleanTitle, article.sourceName);
+  const initialCleanParagraph = cleanParagraphSummary(
+    article.paragraphSummary || (Array.isArray(article.summary) ? article.summary.join(' ') : article.title),
+    initialCleanTitle,
+    article.sourceName
+  );
+
   const [fontSize, setFontSize] = useState<FontSizeOption>('md');
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isTranslating, setIsTranslating] = useState(false);
-  const [translatedTitle, setTranslatedTitle] = useState(article.title);
-  const [translatedSummary, setTranslatedSummary] = useState(article.summary || []);
-  const [translatedParagraph, setTranslatedParagraph] = useState(
-    article.paragraphSummary || (Array.isArray(article.summary) ? article.summary.join(' ') : article.title)
-  );
+  const [translatedTitle, setTranslatedTitle] = useState(initialCleanTitle);
+  const [translatedSummary, setTranslatedSummary] = useState(initialCleanSummary);
+  const [translatedParagraph, setTranslatedParagraph] = useState(initialCleanParagraph);
 
   // Audio TTS state
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -129,10 +140,11 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       translateArticleContent(article, 'ur')
         .then((data) => {
           if (isMounted) {
-            setTranslatedTitle(data.title);
-            setTranslatedSummary(data.summary);
+            const cleanUrTitle = cleanHtmlAndEntities(data.title);
+            setTranslatedTitle(cleanUrTitle);
+            setTranslatedSummary(cleanSummaryBullets(data.summary, cleanUrTitle, article.sourceName));
             if (data.paragraphSummary) {
-              setTranslatedParagraph(data.paragraphSummary);
+              setTranslatedParagraph(cleanParagraphSummary(data.paragraphSummary, cleanUrTitle, article.sourceName));
             }
           }
         })
@@ -140,17 +152,15 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           if (isMounted) setIsTranslating(false);
         });
     } else {
-      setTranslatedTitle(article.title);
-      setTranslatedSummary(article.summary || []);
-      setTranslatedParagraph(
-        article.paragraphSummary || (Array.isArray(article.summary) ? article.summary.join(' ') : article.title)
-      );
+      setTranslatedTitle(initialCleanTitle);
+      setTranslatedSummary(initialCleanSummary);
+      setTranslatedParagraph(initialCleanParagraph);
       setIsTranslating(false);
     }
     return () => {
       isMounted = false;
     };
-  }, [article, newsLanguage]);
+  }, [article, newsLanguage, initialCleanTitle, initialCleanSummary, initialCleanParagraph]);
 
   // Clean up audio on unmount
   useEffect(() => {
@@ -282,7 +292,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Render Editorial Brief with yellow/gold marker highlights
   const renderHighlightedEditorial = () => {
-    const text = translatedParagraph;
+    const text = cleanParagraphSummary(translatedParagraph, translatedTitle, article.sourceName);
     const phrases = article.highlightPhrases && article.highlightPhrases.length > 0
       ? article.highlightPhrases
       : [];
@@ -637,7 +647,7 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* Numbered Cards (1, 2, 3) */}
-          {translatedSummary.map((item, index) => (
+          {cleanSummaryBullets(translatedSummary, translatedTitle, article.sourceName).map((item, index) => (
             <View
               key={index}
               style={[

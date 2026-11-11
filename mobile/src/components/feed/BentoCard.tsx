@@ -21,6 +21,7 @@ import { useTheme } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { translateArticleContent } from '../../services/translation';
 import { getCategoryFallbackUri } from '../../utils/imageHelper';
+import { cleanHtmlAndEntities, cleanSummaryBullets } from '../../utils/textCleaner';
 
 interface BentoCardProps {
   article: Article;
@@ -39,8 +40,11 @@ export const BentoCard: React.FC<BentoCardProps> = ({
   const bookmarkedIds = useAppStore((state) => state.bookmarkedIds);
   const toggleBookmark = useAppStore((state) => state.toggleBookmark);
 
-  const [translatedTitle, setTranslatedTitle] = useState(article.title);
-  const [translatedSummary, setTranslatedSummary] = useState(article.summary);
+  const cleanTitle = cleanHtmlAndEntities(article.title);
+  const cleanSummary = cleanSummaryBullets(article.summary, cleanTitle, article.sourceName);
+
+  const [translatedTitle, setTranslatedTitle] = useState(cleanTitle);
+  const [translatedSummary, setTranslatedSummary] = useState(cleanSummary);
   const [imageError, setImageError] = useState(false);
 
   const isSaved = bookmarkedIds.includes(article.id);
@@ -72,18 +76,19 @@ export const BentoCard: React.FC<BentoCardProps> = ({
     if (newsLanguage === 'ur') {
       translateArticleContent(article, 'ur').then((data) => {
         if (isMounted) {
-          setTranslatedTitle(data.title);
-          setTranslatedSummary(data.summary);
+          const cleanUrTitle = cleanHtmlAndEntities(data.title);
+          setTranslatedTitle(cleanUrTitle);
+          setTranslatedSummary(cleanSummaryBullets(data.summary, cleanUrTitle, article.sourceName));
         }
       });
     } else {
-      setTranslatedTitle(article.title);
-      setTranslatedSummary(article.summary);
+      setTranslatedTitle(cleanTitle);
+      setTranslatedSummary(cleanSummary);
     }
     return () => {
       isMounted = false;
     };
-  }, [article, newsLanguage]);
+  }, [article, newsLanguage, cleanTitle]);
 
   const catStyle = categoryColors[article.category] || categoryColors['Top Stories'];
 

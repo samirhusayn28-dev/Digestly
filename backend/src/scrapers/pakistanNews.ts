@@ -92,8 +92,9 @@ export async function scrapeExpandedPakistanNews(): Promise<ScrapedRawArticle[]>
         const title = rawTitle.replace(/\s*-\s*(The News|ARY NEWS|SAMAA TV|Business Recorder|Daily Times|Pakistan Today)\s*$/i, '').trim();
 
         if (title && link) {
-          const desc$ = cheerio.load(rawDescription);
-          const bodySnippet = desc$.text().trim();
+          const desc$ = cheerio.load(cheerio.load(rawDescription).text());
+          let bodySnippet = desc$.text().replace(/<[^>]+>/g, ' ').replace(/https?:\/\/[^\s"'<>]+/gi, '').replace(/\s+/g, ' ').trim();
+          if (bodySnippet.length < 25) bodySnippet = title;
 
           const lower = title.toLowerCase();
           let category = feed.defaultCategory || 'Politics';

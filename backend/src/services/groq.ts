@@ -128,7 +128,11 @@ Respond in valid JSON only with this structure:
 
 // Fallback heuristic summarizer if API key is not present or during offline testing
 function fallbackSummarizer(article: ScrapedRawArticle): SummarizeResult {
-  const cleanBody = article.body.replace(/\s+/g, ' ').trim();
+  const cleanBody = article.body
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/https?:\/\/[^\s"'<>]+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   const sentences = cleanBody
     .split(/(?<=[.?!])\s+/)
     .filter(
@@ -136,7 +140,9 @@ function fallbackSummarizer(article: ScrapedRawArticle): SummarizeResult {
         s.length > 25 &&
         !s.toLowerCase().includes('click here') &&
         !s.toLowerCase().includes('subscribe') &&
-        !s.toLowerCase().includes('read more')
+        !s.toLowerCase().includes('read more') &&
+        !s.toLowerCase().includes('.com/') &&
+        !/^https?:\/\//i.test(s)
     );
 
   // Build 4-sentence paragraph summary

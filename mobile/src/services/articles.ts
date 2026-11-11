@@ -14,6 +14,11 @@ import {
 import { db } from './firebase';
 import { Article } from '../navigation/types';
 import { getLiveNewsArticles } from './liveNewsService';
+import {
+  cleanHtmlAndEntities,
+  cleanParagraphSummary,
+  cleanSummaryBullets,
+} from '../utils/textCleaner';
 
 export const REALISTIC_SEED_ARTICLES: Article[] = [
   {
@@ -664,13 +669,20 @@ export async function fetchArticlesFromFirestore(
       const docs = querySnapshot.docs;
       const fetched: Article[] = docs.map((docSnap) => {
         const data = docSnap.data();
+        const rawTitle = data.title || '';
+        const title = cleanHtmlAndEntities(rawTitle);
+        const sourceName = data.sourceName || 'Dawn';
+        const rawSummary = Array.isArray(data.summary) ? data.summary : [data.summary];
+        const summary = cleanSummaryBullets(rawSummary, title, sourceName);
+        const paragraphSummary = cleanParagraphSummary(data.paragraphSummary, title, sourceName);
+
         return {
           id: docSnap.id,
-          title: data.title,
-          summary: Array.isArray(data.summary) ? data.summary : [data.summary],
-          paragraphSummary: data.paragraphSummary,
+          title,
+          summary,
+          paragraphSummary,
           highlightPhrases: Array.isArray(data.highlightPhrases) ? data.highlightPhrases : [],
-          sourceName: data.sourceName || 'Dawn',
+          sourceName,
           sourceUrl: data.sourceUrl || 'https://www.dawn.com',
           category: data.category || 'General',
           imageUrl: data.imageUrl,

@@ -47,7 +47,8 @@ export async function scrapeTribuneNews(): Promise<ScrapedRawArticle[]> {
 
         // Clean HTML tags from description
         const desc$ = cheerio.load(rawDescription);
-        const bodySnippet = desc$.text().trim();
+        let bodySnippet = desc$.text().replace(/<[^>]+>/g, ' ').replace(/https?:\/\/[^\s"'<>]+/gi, '').replace(/\s+/g, ' ').trim();
+        if (bodySnippet.length < 25) bodySnippet = title;
 
         if (title && link) {
           let category = 'Politics';
